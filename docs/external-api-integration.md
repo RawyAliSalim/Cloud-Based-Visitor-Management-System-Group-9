@@ -12,6 +12,8 @@ The system uses two external APIs, both inside the Host Notification Service:
 
 Your services do not call these APIs directly. You connect to them through the few lines below.
 
+Status: all the integration points in sections 2 and 3 are already implemented in the repo. This guide documents where they are and why.
+
 ---
 
 ## 1. How it fits together
@@ -190,7 +192,7 @@ Already listed in `.env.example`. Real values go in a local `.env` and in Vercel
 | `VITE_FIREBASE_APP_ID` | client | `appId` |
 | `VITE_FIREBASE_VAPID_KEY` | client | Firebase → Cloud Messaging → Web Push certificates |
 
-Locally, Vite reads `VITE_*` variables from the `client/` folder unless `envDir` is set in `vite.config.js`.
+Locally, everything goes in the one root `.env`. `vite.config.js` sets `envDir: '..'` so the client reads its `VITE_*` variables from there.
 
 ---
 
