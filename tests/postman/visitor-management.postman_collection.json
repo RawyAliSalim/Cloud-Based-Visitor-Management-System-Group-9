@@ -1,0 +1,736 @@
+{
+  "info": {
+    "name": "Visitor Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Notifications",
+      "description": "Host Notification Service. Log in first with the matching role so Postman stores the session cookie.",
+      "item": [
+        {
+          "name": "Host - list own notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('No contact details in response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('\"email\"');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Log in as the host first."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - list another host notifications (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?hostId={{otherHostId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "hostId",
+                  "value": "{{otherHostId}}"
+                }
+              ]
+            },
+            "description": "Log in as a host. otherHostId is a different host."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - save FCM token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/fcm-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "fcm-token"
+              ]
+            },
+            "description": "Log in as the host first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{fcmToken}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Host - save FCM token wrong content type (415)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 415', function () {",
+                  "  pm.response.to.have.status(415);",
+                  "});",
+                  "pm.test('Error code is UNSUPPORTED_MEDIA_TYPE', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNSUPPORTED_MEDIA_TYPE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/fcm-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "fcm-token"
+              ]
+            },
+            "description": "Body sent as text/plain.",
+            "body": {
+              "mode": "raw",
+              "raw": "token"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Host - acknowledge notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('acknowledgedAt is set', function () {",
+                  "  pm.expect(pm.response.json().acknowledgedAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "notificationId belongs to the logged-in host."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - acknowledge again (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is NOTIFICATION_ALREADY_ACKNOWLEDGED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOTIFICATION_ALREADY_ACKNOWLEDGED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "Run after the acknowledge request."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - acknowledge another host notification (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{otherHostNotificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{otherHostNotificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "otherHostNotificationId belongs to a different host."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - resend (403 wrong role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{failedNotificationId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{failedNotificationId}}",
+                "resend"
+              ]
+            },
+            "description": "Still logged in as a host."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - list all notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('No contact details in response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('\"email\"');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Log in as front-desk or admin first."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - filter by visit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?visitId={{visitId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "visitId",
+                  "value": "{{visitId}}"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - filter by host",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?hostId={{hostId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "hostId",
+                  "value": "{{hostId}}"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - filter by status Failed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Every row is Failed', function () {",
+                  "  pm.response.json().forEach(function (n) { pm.expect(n.status).to.eql('Failed'); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?status=Failed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Failed"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - invalid status filter (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?status=Pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Pending"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - resend failed notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('New attempt points to original', function () {",
+                  "  pm.expect(pm.response.json().resendOf).to.eql(pm.collectionVariables.get('failedNotificationId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{failedNotificationId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{failedNotificationId}}",
+                "resend"
+              ]
+            },
+            "description": "failedNotificationId has status Failed."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - resend non-failed notification (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is NOTIFICATION_NOT_FAILED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOTIFICATION_NOT_FAILED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{sentNotificationId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{sentNotificationId}}",
+                "resend"
+              ]
+            },
+            "description": "sentNotificationId has status Sent."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - resend unknown notification (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test('Error code is NOTIFICATION_NOT_FOUND', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOTIFICATION_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/000000000000000000000000/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "000000000000000000000000",
+                "resend"
+              ]
+            },
+            "description": "Id that does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - acknowledge (403 wrong role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "Still logged in as front-desk."
+          },
+          "response": []
+        },
+        {
+          "name": "No session - list notifications (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Log out or clear cookies for baseUrl first."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "otherHostNotificationId",
+      "value": ""
+    },
+    {
+      "key": "failedNotificationId",
+      "value": ""
+    },
+    {
+      "key": "sentNotificationId",
+      "value": ""
+    },
+    {
+      "key": "visitId",
+      "value": ""
+    },
+    {
+      "key": "hostId",
+      "value": ""
+    },
+    {
+      "key": "otherHostId",
+      "value": ""
+    },
+    {
+      "key": "fcmToken",
+      "value": ""
+    }
+  ]
+}
