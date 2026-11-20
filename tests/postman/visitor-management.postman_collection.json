@@ -1,0 +1,2110 @@
+{
+  "info": {
+    "name": "Visitor Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Session login shared by all services.",
+      "item": [
+        {
+          "name": "Login wrong password (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Error code is INVALID_CREDENTIALS', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Wrong password.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{frontDeskEmail}}\",\n  \"password\": \"wrong-password\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login missing fields (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Empty body fields.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as front desk",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Stores the session cookie for front desk.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{frontDeskEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Current user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Returns the logged-in user."
+          },
+          "response": []
+        },
+        {
+          "name": "List hosts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code < 300) { pm.collectionVariables.set('hostId', pm.response.json()[0]._id); }",
+                  "pm.test('No password or email returned', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('passwordHash');",
+                  "  pm.expect(pm.response.text()).to.not.include('@');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/hosts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "hosts"
+              ]
+            },
+            "description": "Active hosts for the host dropdown."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Ends the session."
+          },
+          "response": []
+        },
+        {
+          "name": "Current user without session (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Error code is UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Run after logout."
+          },
+          "response": []
+        },
+        {
+          "name": "Login as front desk again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Stores the session cookie for front desk again.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{frontDeskEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Visitor Registration",
+      "description": "Rawy Ali Salim. Log in as front desk first (Auth folder).",
+      "item": [
+        {
+          "name": "Register walk-in visit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code < 300) { pm.collectionVariables.set('visitId', pm.response.json()._id); }",
+                  "if (pm.response.code < 300) { pm.collectionVariables.set('visitorId', pm.response.json().visitorId._id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "Front desk registers a visit for {{hostId}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara@example.com\",\n  \"phone\": \"+20 100 123 4567\",\n  \"company\": \"Acme\",\n  \"purpose\": \"Project meeting\",\n  \"hostId\": \"{{hostId}}\",\n  \"expectedArrival\": \"{{$isoTimestamp}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register missing purpose (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "purpose is required.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"hostId\": \"{{hostId}}\",\n  \"expectedArrival\": \"{{$isoTimestamp}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register bad email (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "Invalid email format.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"not-an-email\",\n  \"purpose\": \"Meeting\",\n  \"hostId\": \"{{hostId}}\",\n  \"expectedArrival\": \"{{$isoTimestamp}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register unknown host (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "Host does not exist.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"purpose\": \"Meeting\",\n  \"hostId\": \"000000000000000000000000\",\n  \"expectedArrival\": \"{{$isoTimestamp}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register arrival in the past (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "expectedArrival in the past.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"purpose\": \"Meeting\",\n  \"hostId\": \"{{hostId}}\",\n  \"expectedArrival\": \"2020-01-01T09:00:00.000Z\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register wrong content type (415)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 415', function () {",
+                  "  pm.response.to.have.status(415);",
+                  "});",
+                  "pm.test('Error code is UNSUPPORTED_MEDIA_TYPE', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNSUPPORTED_MEDIA_TYPE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "Body sent as text/plain.",
+            "body": {
+              "mode": "raw",
+              "raw": "hello"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Look up returning visitor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visitors?search=sara",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visitors"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "sara"
+                }
+              ]
+            },
+            "description": "Search by name, email or phone."
+          },
+          "response": []
+        },
+        {
+          "name": "Register returning visitor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code < 300) { pm.collectionVariables.set('cancelVisitId', pm.response.json()._id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "Reuses saved visitor details.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visitorId\": \"{{visitorId}}\",\n  \"purpose\": \"Follow-up meeting\",\n  \"hostId\": \"{{hostId}}\",\n  \"expectedArrival\": \"{{$isoTimestamp}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Edit visit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{visitId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visitId}}"
+              ]
+            },
+            "description": "Edit while Expected.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"Updated project meeting\",\n  \"company\": \"Acme Ltd\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel visit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status is Cancelled', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('Cancelled');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{cancelVisitId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{cancelVisitId}}",
+                "cancel"
+              ]
+            },
+            "description": "Expected to Cancelled."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel again (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is VISIT_NOT_EXPECTED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VISIT_NOT_EXPECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{cancelVisitId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{cancelVisitId}}",
+                "cancel"
+              ]
+            },
+            "description": "Already cancelled."
+          },
+          "response": []
+        },
+        {
+          "name": "Edit cancelled visit (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is VISIT_NOT_EXPECTED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VISIT_NOT_EXPECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{cancelVisitId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{cancelVisitId}}"
+              ]
+            },
+            "description": "Only Expected visits can be edited.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"Too late\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Check-in and Visitor Log",
+      "description": "Mostafa Raafat Mohamed. Run after Visitor Registration while logged in as front desk.",
+      "item": [
+        {
+          "name": "Check out before check-in (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is VISIT_NOT_CHECKED_IN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VISIT_NOT_CHECKED_IN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{visitId}}/check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visitId}}",
+                "check-out"
+              ]
+            },
+            "description": "Visit is still Expected."
+          },
+          "response": []
+        },
+        {
+          "name": "Check in visitor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Checked-in with 2 notification results', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('Checked-in');",
+                  "  pm.expect(body.notifications.length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{visitId}}/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visitId}}",
+                "check-in"
+              ]
+            },
+            "description": "Expected to Checked-in and notifies the host."
+          },
+          "response": []
+        },
+        {
+          "name": "Check in again (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is VISIT_NOT_EXPECTED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VISIT_NOT_EXPECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{visitId}}/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visitId}}",
+                "check-in"
+              ]
+            },
+            "description": "Already checked in."
+          },
+          "response": []
+        },
+        {
+          "name": "Check in cancelled visit (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is VISIT_NOT_EXPECTED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VISIT_NOT_EXPECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{cancelVisitId}}/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{cancelVisitId}}",
+                "check-in"
+              ]
+            },
+            "description": "Cancelled visits cannot be checked in."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitors on site",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/on-site",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "on-site"
+              ]
+            },
+            "description": "All Checked-in visits."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitor log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ]
+            },
+            "description": "All visits, newest first."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitor log by status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits?status=Checked-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Checked-in"
+                }
+              ]
+            },
+            "description": "Filter by status."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitor log by visitor name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits?visitor=sara",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ],
+              "query": [
+                {
+                  "key": "visitor",
+                  "value": "sara"
+                }
+              ]
+            },
+            "description": "Filter by visitor name."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitor log by host",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits?hostId={{hostId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ],
+              "query": [
+                {
+                  "key": "hostId",
+                  "value": "{{hostId}}"
+                }
+              ]
+            },
+            "description": "Filter by host."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitor log by date range",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits?from=2026-01-01T00:00:00.000Z&to=2030-12-31T23:59:59.999Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01T00:00:00.000Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2030-12-31T23:59:59.999Z"
+                }
+              ]
+            },
+            "description": "Filter by expected arrival date."
+          },
+          "response": []
+        },
+        {
+          "name": "Visitor log bad status (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits?status=Unknown",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Unknown"
+                }
+              ]
+            },
+            "description": "Invalid status filter."
+          },
+          "response": []
+        },
+        {
+          "name": "Visit details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{visitId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visitId}}"
+              ]
+            },
+            "description": "Full record of one visit."
+          },
+          "response": []
+        },
+        {
+          "name": "Visit not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test('Error code is VISIT_NOT_FOUND', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VISIT_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "000000000000000000000000"
+              ]
+            },
+            "description": "Unknown id."
+          },
+          "response": []
+        },
+        {
+          "name": "Check out visitor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status is Checked-out', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('Checked-out');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/visits/{{visitId}}/check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visitId}}",
+                "check-out"
+              ]
+            },
+            "description": "Checked-in to Checked-out."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "Host Notification Service. Log in first with the matching role so Postman stores the session cookie.",
+      "item": [
+        {
+          "name": "Host - list own notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('No contact details in response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('\"email\"');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Log in as the host first."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - list another host notifications (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?hostId={{otherHostId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "hostId",
+                  "value": "{{otherHostId}}"
+                }
+              ]
+            },
+            "description": "Log in as a host. otherHostId is a different host."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - save FCM token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/fcm-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "fcm-token"
+              ]
+            },
+            "description": "Log in as the host first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{fcmToken}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Host - save FCM token wrong content type (415)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 415', function () {",
+                  "  pm.response.to.have.status(415);",
+                  "});",
+                  "pm.test('Error code is UNSUPPORTED_MEDIA_TYPE', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNSUPPORTED_MEDIA_TYPE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/fcm-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "fcm-token"
+              ]
+            },
+            "description": "Body sent as text/plain.",
+            "body": {
+              "mode": "raw",
+              "raw": "token"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Host - acknowledge notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('acknowledgedAt is set', function () {",
+                  "  pm.expect(pm.response.json().acknowledgedAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "notificationId belongs to the logged-in host."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - acknowledge again (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is NOTIFICATION_ALREADY_ACKNOWLEDGED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOTIFICATION_ALREADY_ACKNOWLEDGED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "Run after the acknowledge request."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - acknowledge another host notification (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{otherHostNotificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{otherHostNotificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "otherHostNotificationId belongs to a different host."
+          },
+          "response": []
+        },
+        {
+          "name": "Host - resend (403 wrong role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{failedNotificationId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{failedNotificationId}}",
+                "resend"
+              ]
+            },
+            "description": "Still logged in as a host."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - list all notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('No contact details in response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('\"email\"');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Log in as front-desk or admin first."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - filter by visit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?visitId={{visitId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "visitId",
+                  "value": "{{visitId}}"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - filter by host",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?hostId={{hostId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "hostId",
+                  "value": "{{hostId}}"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - filter by status Failed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Every row is Failed', function () {",
+                  "  pm.response.json().forEach(function (n) { pm.expect(n.status).to.eql('Failed'); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?status=Failed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Failed"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - invalid status filter (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error code is VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?status=Pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Pending"
+                }
+              ]
+            },
+            "description": "Log in as front-desk or admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - resend failed notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('New attempt points to original', function () {",
+                  "  pm.expect(pm.response.json().resendOf).to.eql(pm.collectionVariables.get('failedNotificationId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{failedNotificationId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{failedNotificationId}}",
+                "resend"
+              ]
+            },
+            "description": "failedNotificationId has status Failed."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - resend non-failed notification (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Error code is NOTIFICATION_NOT_FAILED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOTIFICATION_NOT_FAILED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{sentNotificationId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{sentNotificationId}}",
+                "resend"
+              ]
+            },
+            "description": "sentNotificationId has status Sent."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - resend unknown notification (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test('Error code is NOTIFICATION_NOT_FOUND', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOTIFICATION_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/000000000000000000000000/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "000000000000000000000000",
+                "resend"
+              ]
+            },
+            "description": "Id that does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Front desk - acknowledge (403 wrong role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error code is FORBIDDEN', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "acknowledge"
+              ]
+            },
+            "description": "Still logged in as front-desk."
+          },
+          "response": []
+        },
+        {
+          "name": "No session - list notifications (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Log out or clear cookies for baseUrl first."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "otherHostNotificationId",
+      "value": ""
+    },
+    {
+      "key": "failedNotificationId",
+      "value": ""
+    },
+    {
+      "key": "sentNotificationId",
+      "value": ""
+    },
+    {
+      "key": "visitId",
+      "value": ""
+    },
+    {
+      "key": "hostId",
+      "value": ""
+    },
+    {
+      "key": "otherHostId",
+      "value": ""
+    },
+    {
+      "key": "fcmToken",
+      "value": ""
+    },
+    {
+      "key": "frontDeskEmail",
+      "value": "frontdesk@vms.local"
+    },
+    {
+      "key": "hostEmail",
+      "value": "host1@vms.local"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "visitorId",
+      "value": ""
+    },
+    {
+      "key": "cancelVisitId",
+      "value": ""
+    }
+  ]
+}

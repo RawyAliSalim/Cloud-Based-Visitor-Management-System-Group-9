@@ -1,0 +1,11 @@
+{
+  "name": "visitor-management-server",
+  "version": "1.0.0",
+  "private": true,
+  "main": "app.js",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "seed": "node scripts/seed.js"
+  }
+}
