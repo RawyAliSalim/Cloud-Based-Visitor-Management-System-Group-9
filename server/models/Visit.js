@@ -15,7 +15,9 @@ const visitSchema = new mongoose.Schema(
     checkInTime: { type: Date },
     checkOutTime: { type: Date },
     cancelledAt: { type: Date },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Client-generated Idempotency-Key, so a double-submitted registration creates one visit.
+    registrationKey: { type: String, maxlength: 100, select: false }
   },
   { timestamps: true }
 );
@@ -23,5 +25,9 @@ const visitSchema = new mongoose.Schema(
 visitSchema.index({ status: 1, expectedArrival: -1 });
 visitSchema.index({ hostId: 1, expectedArrival: -1 });
 visitSchema.index({ visitorId: 1 });
+visitSchema.index(
+  { createdBy: 1, registrationKey: 1 },
+  { name: 'registrationKey_unique', unique: true, partialFilterExpression: { registrationKey: { $type: 'string' } } }
+);
 
 module.exports = mongoose.models.Visit || mongoose.model('Visit', visitSchema);

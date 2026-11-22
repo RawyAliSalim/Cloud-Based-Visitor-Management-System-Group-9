@@ -1,7 +1,10 @@
 import { apiRequest, toQuery } from './client';
 
-export function createVisit(data) {
-  return apiRequest('/api/visits', { method: 'POST', body: data });
+// idempotencyKey stays the same for every retry of one form submission,
+// so a double click or a retried request never creates two visits.
+export function createVisit(data, idempotencyKey) {
+  const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {};
+  return apiRequest('/api/visits', { method: 'POST', body: data, headers });
 }
 
 export function updateVisit(id, data) {

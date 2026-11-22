@@ -38,11 +38,18 @@ export default function EditVisit() {
     if (changes.expectedArrival === new Date(visit.expectedArrival).toISOString()) {
       delete changes.expectedArrival;
     }
-    if (!changes.email) {
-      delete changes.email;
+    // Only send what changed, so unchanged visitor details never trigger visitor-record rules.
+    const original = visit.visitorId || {};
+    ['fullName', 'email', 'phone', 'company'].forEach((field) => {
+      if ((changes[field] || '') === (original[field] || '')) {
+        delete changes[field];
+      }
+    });
+    if (changes.purpose === visit.purpose) {
+      delete changes.purpose;
     }
-    if (!changes.phone) {
-      delete changes.phone;
+    if (changes.hostId && changes.hostId === (visit.hostId?._id || '')) {
+      delete changes.hostId;
     }
     try {
       await updateVisit(id, changes);
