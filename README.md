@@ -59,6 +59,8 @@ Visitor Management System for the Introduction to Cloud Computing course (25CSCI
 | POST | `/api/notifications/:id/resend` | front-desk, admin |
 | POST | `/api/notifications/fcm-token` | logged in |
 
+Security measures (and why CORS is not one of them): see [docs/security.md](docs/security.md).
+
 Errors always use `{ "error": { "code": "UPPER_SNAKE", "message": "..." } }`.
 
 ## Run with Docker (local development)
