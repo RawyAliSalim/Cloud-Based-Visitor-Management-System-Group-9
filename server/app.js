@@ -4,6 +4,8 @@ const connectDB = require('./config/db');
 const createSession = require('./config/session');
 const { sendError } = require('./middleware/validate');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const requestLogger = require('./middleware/requestLogger');
+const logger = require('./utils/logger');
 const authRoutes = require('./routes/auth.routes');
 const visitorsRoutes = require('./routes/visitors.routes');
 const visitsRoutes = require('./routes/visits.routes');
@@ -19,6 +21,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
 
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+app.use(requestLogger);
 app.use(cors({ origin: allowedOrigins.length > 0 ? allowedOrigins : false, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
 
@@ -31,7 +34,7 @@ app.use(async (req, res, next) => {
     await connectDB();
     return next();
   } catch (error) {
-    console.error('Database connection failed:', error.name);
+    logger.error('db.connect_failed', { requestId: req.id, error: error.name });
     return sendError(res, 503, 'DATABASE_UNAVAILABLE', 'Database is not available');
   }
 });
