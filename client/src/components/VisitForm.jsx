@@ -127,6 +127,12 @@ export default function VisitForm({
                     {visitor.fullName}
                     {visitor.company && ` · ${visitor.company}`}
                     {visitor.email && ` · ${visitor.email}`}
+                    <span className="ml-2 text-xs text-gray-500">
+                      {visitor.visitCount > 0
+                        ? `${visitor.visitCount} visit${visitor.visitCount === 1 ? '' : 's'}, last ${new Date(visitor.lastVisitAt).toLocaleDateString()}`
+                        : 'No visits yet'}
+                      {visitor.activeVisits > 0 && ` · ${visitor.activeVisits} upcoming/on site`}
+                    </span>
                   </span>
                   <button
                     type="button"
