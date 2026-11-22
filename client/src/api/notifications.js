@@ -15,3 +15,11 @@ export function resendNotification(id) {
 export function saveFcmToken(token) {
   return apiRequest('/api/notifications/fcm-token', { method: 'POST', body: { token } });
 }
+
+export function getNotificationSummary(hours = 24) {
+  return apiRequest(`/api/notifications/summary${toQuery({ hours })}`);
+}
+
+export function retryDueNotifications() {
+  return apiRequest('/api/notifications/retry-due', { method: 'POST' });
+}

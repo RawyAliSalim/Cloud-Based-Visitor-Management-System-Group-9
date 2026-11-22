@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import NotificationItem from '../components/NotificationItem';
+import { Link } from 'react-router-dom';
 import {
   getNotifications,
   acknowledgeNotification,
   resendNotification,
-  saveFcmToken
+  saveFcmToken,
+  getNotificationSummary,
+  retryDueNotifications
 } from '../api/notifications';
 import { enablePushNotifications, isPushConfigured, listenForForegroundMessages } from '../firebase';
 
@@ -24,6 +27,7 @@ export default function Notifications() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [pushStatus, setPushStatus] = useState('');
+  const [summary, setSummary] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,9 +42,40 @@ export default function Notifications() {
     }
   }, [isHost, appliedFilters]);
 
+  const loadSummary = useCallback(async () => {
+    if (!isStaff) {
+      return;
+    }
+    try {
+      setSummary(await getNotificationSummary());
+    } catch {
+      setSummary(null);
+    }
+  }, [isStaff]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  async function handleRetryDue() {
+    setError('');
+    setMessage('');
+    try {
+      const result = await retryDueNotifications();
+      setMessage(
+        result.processed === 0
+          ? 'No retries are due right now.'
+          : `Processed ${result.processed} retries: ${result.sent} sent, ${result.retrying} will retry again, ${result.failed} failed, ${result.cancelled} no longer needed.`
+      );
+      await Promise.all([load(), loadSummary()]);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   useEffect(() => {
     if (!isHost || !isPushConfigured() || !('Notification' in window) || window.Notification.permission !== 'granted') {
@@ -94,10 +129,13 @@ export default function Notifications() {
     setMessage('');
     try {
       const updated = await acknowledgeNotification(id);
-      setNotifications((list) =>
-        list.map((item) => (item._id === id ? { ...item, acknowledgedAt: updated.acknowledgedAt } : item))
+      setMessage(
+        updated.stoppedRetries > 0
+          ? 'Arrival acknowledged. Pending retries were stopped.'
+          : 'Arrival acknowledged. The front desk can see it on the visit.'
       );
-      setMessage('Notification acknowledged.');
+      // Acknowledging covers every notification of that visit, so reload the list.
+      await load();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -111,12 +149,12 @@ export default function Notifications() {
     setMessage('');
     try {
       const attempt = await resendNotification(id);
-      setMessage(
-        attempt.status === 'Sent'
-          ? 'Notification resent successfully.'
-          : `Resend attempt failed: ${attempt.error || 'unknown reason'}`
-      );
-      await load();
+      const outcomes = {
+        Sent: 'Notification resent successfully.',
+        Retrying: `Resend hit a temporary error (${attempt.error}); it will be retried automatically.`
+      };
+      setMessage(outcomes[attempt.status] || `Resend attempt failed: ${attempt.error || 'unknown reason'}`);
+      await Promise.all([load(), loadSummary()]);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -149,14 +187,80 @@ export default function Notifications() {
         <h1 className="text-2xl font-semibold text-gray-900">
           {isHost ? 'My notifications' : 'Notification history'}
         </h1>
-        <button
-          type="button"
-          onClick={load}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-        >
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          {isStaff && (
+            <button
+              type="button"
+              onClick={handleRetryDue}
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-100"
+            >
+              Run due retries
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => Promise.all([load(), loadSummary()])}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {isStaff && summary && (
+        <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 text-sm">
+          <div className="flex flex-wrap gap-4 text-gray-700">
+            <span>Last {summary.windowHours} h:</span>
+            {Object.entries(summary.counts)
+              .filter(([, count]) => count > 0)
+              .map(([status, count]) => (
+                <span key={status}>
+                  {status}: <strong>{count}</strong>
+                </span>
+              ))}
+            {summary.channels.map((channel) => (
+              <span key={channel.channel}>
+                {channel.channel === 'email' ? 'Email' : 'Push'} delivery: <strong>{Math.round(channel.deliveryRate * 100)}%</strong>
+              </span>
+            ))}
+            {summary.acknowledgement.averageSeconds !== null && (
+              <span>
+                Average host response: <strong>{Math.round(summary.acknowledgement.averageSeconds / 60)} min</strong>
+              </span>
+            )}
+          </div>
+          {summary.undelivered.length > 0 && (
+            <div className="rounded-md bg-red-50 p-3 text-red-800">
+              <p className="font-medium">Hosts not reached (every channel failed): resend or call them.</p>
+              <ul className="mt-1 list-disc pl-5">
+                {summary.undelivered.map((item) => (
+                  <li key={item.visitId}>
+                    <Link to={`/visits/${item.visitId}`} className="underline">
+                      {item.visitor || 'Visitor'}
+                    </Link>{' '}
+                    for {item.host || 'host'}, waiting {item.minutesWaiting} min
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {summary.awaitingAcknowledgement.length > 0 && (
+            <div className="rounded-md bg-amber-50 p-3 text-amber-900">
+              <p className="font-medium">No response for more than {summary.escalationMinutes} minutes:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {summary.awaitingAcknowledgement.map((item) => (
+                  <li key={item.visitId}>
+                    <Link to={`/visits/${item.visitId}`} className="underline">
+                      {item.visitor || 'Visitor'}
+                    </Link>{' '}
+                    waiting for {item.host || 'host'} for {item.minutesWaiting} min
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
 
       {isHost && isPushConfigured() && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -196,8 +300,11 @@ export default function Notifications() {
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">All statuses</option>
+            <option value="Pending">Pending</option>
             <option value="Sent">Sent</option>
+            <option value="Retrying">Retrying</option>
             <option value="Failed">Failed</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
           <div className="flex gap-2">
             <button type="submit" className="flex-1 rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800">
