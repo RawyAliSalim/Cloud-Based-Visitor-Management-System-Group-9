@@ -70,6 +70,9 @@ npm --prefix client install && npm run client    # web app on http://localhost:5
 ```
 If a local MongoDB already uses port 27017, set `MONGO_HOST_PORT=27018` before `docker compose up`.
 
+## AWS (Docker + AWS CLI v2)
+The Docker stack includes floci, a local AWS emulator. AWS CLI v2 scripts in `scripts/aws/` keep the app secrets in **Secrets Manager** and store encrypted MongoDB backups in **S3**. See [docs/aws.md](docs/aws.md).
+
 ## Testing
 Automated integration tests use Node's built-in test runner against a real MongoDB. Each test file creates and drops its own `vms_test_*` database.
 ```
