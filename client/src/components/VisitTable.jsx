@@ -5,7 +5,15 @@ export function formatDateTime(value) {
   return value ? new Date(value).toLocaleString() : '-';
 }
 
-export default function VisitTable({ visits, showHost = true, renderActions }) {
+export function formatMinutes(minutes) {
+  if (minutes === null || minutes === undefined) {
+    return '-';
+  }
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+export default function VisitTable({ visits, showHost = true, showDuration = false, renderActions }) {
   if (visits.length === 0) {
     return <p className="text-sm text-gray-500">No visits found.</p>;
   }
@@ -22,6 +30,7 @@ export default function VisitTable({ visits, showHost = true, renderActions }) {
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Checked in</th>
             <th className="px-4 py-3">Checked out</th>
+            {showDuration && <th className="px-4 py-3">Time on site</th>}
             {renderActions && <th className="px-4 py-3" />}
           </tr>
         </thead>
@@ -42,6 +51,16 @@ export default function VisitTable({ visits, showHost = true, renderActions }) {
               </td>
               <td className="px-4 py-3">{formatDateTime(visit.checkInTime)}</td>
               <td className="px-4 py-3">{formatDateTime(visit.checkOutTime)}</td>
+              {showDuration && (
+                <td className="px-4 py-3">
+                  {formatMinutes(visit.durationMinutes)}
+                  {visit.overstay && (
+                    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                      Overstay
+                    </span>
+                  )}
+                </td>
+              )}
               {renderActions && <td className="px-4 py-3 text-right">{renderActions(visit)}</td>}
             </tr>
           ))}

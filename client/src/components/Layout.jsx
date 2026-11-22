@@ -6,6 +6,7 @@ const LINKS = [
   { to: '/visits/new', label: 'Register visit', roles: ['host', 'front-desk', 'admin'] },
   { to: '/check-in', label: 'Check-in / out', roles: ['front-desk', 'admin'] },
   { to: '/on-site', label: 'On site', roles: ['front-desk', 'admin'] },
+  { to: '/reports', label: 'Reports', roles: ['front-desk', 'admin'] },
   { to: '/notifications', label: 'Notifications', roles: ['host', 'front-desk', 'admin'] }
 ];
 

@@ -5,7 +5,7 @@ import { checkInVisit, checkOutVisit, getVisit } from '../api/checkin';
 import { cancelVisit } from '../api/visits';
 import { getNotifications } from '../api/notifications';
 import StatusBadge from '../components/StatusBadge';
-import { formatDateTime } from '../components/VisitTable';
+import { formatDateTime, formatMinutes } from '../components/VisitTable';
 
 function Field({ label, children }) {
   return (
@@ -142,12 +142,37 @@ export default function VisitDetails() {
           <Field label="Purpose">{visit.purpose}</Field>
           <Field label="Expected arrival">{formatDateTime(visit.expectedArrival)}</Field>
           <Field label="Registered by">{visit.createdBy?.name}</Field>
-          <Field label="Checked in">{visit.checkInTime && formatDateTime(visit.checkInTime)}</Field>
-          <Field label="Checked out">{visit.checkOutTime && formatDateTime(visit.checkOutTime)}</Field>
+          <Field label="Checked in">
+            {visit.checkInTime && `${formatDateTime(visit.checkInTime)}${visit.checkedInBy ? ` by ${visit.checkedInBy.name}` : ''}`}
+          </Field>
+          <Field label="Checked out">
+            {visit.checkOutTime && `${formatDateTime(visit.checkOutTime)}${visit.checkedOutBy ? ` by ${visit.checkedOutBy.name}` : ''}`}
+          </Field>
+          {visit.durationMinutes !== undefined && (
+            <Field label={visit.status === 'Checked-in' ? 'On site for' : 'Visit length'}>
+              {formatMinutes(visit.durationMinutes)}
+              {visit.overstay && ' (overstay)'}
+            </Field>
+          )}
           {visit.cancelledAt && <Field label="Cancelled">{formatDateTime(visit.cancelledAt)}</Field>}
           <Field label="Created">{formatDateTime(visit.createdAt)}</Field>
         </dl>
       </section>
+
+      {visit.statusHistory?.length > 0 && (
+        <section className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Status history</h2>
+          <ol className="space-y-2 border-l-2 border-gray-200 pl-4 text-sm">
+            {visit.statusHistory.map((entry, index) => (
+              <li key={`${entry.to}-${index}`} className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={entry.to} />
+                <span className="text-gray-700">{formatDateTime(entry.at)}</span>
+                {entry.by?.name && <span className="text-gray-500">by {entry.by.name}</span>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
