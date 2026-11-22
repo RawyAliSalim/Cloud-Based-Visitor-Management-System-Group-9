@@ -1,4 +1,5 @@
 const { sendError } = require('./validate');
+const logger = require('../utils/logger');
 
 function notFound(req, res) {
   return sendError(res, 404, 'NOT_FOUND', 'Route not found');
@@ -30,11 +31,12 @@ function errorHandler(error, req, res, next) {
     return sendError(res, 409, 'DUPLICATE_RECORD', 'Record already exists');
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    console.error('Unhandled error:', error.name);
-  } else {
-    console.error(error);
-  }
+  logger.error('http.unhandled_error', {
+    requestId: req.id,
+    error: error.name,
+    detail: process.env.NODE_ENV === 'production' ? undefined : error.message,
+    stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+  });
 
   return sendError(res, 500, 'INTERNAL_ERROR', 'Something went wrong');
 }

@@ -11,11 +11,11 @@ export function toQuery(params = {}) {
   return query ? `?${query}` : '';
 }
 
-export async function apiRequest(path, { method = 'GET', body } = {}) {
+export async function apiRequest(path, { method = 'GET', body, headers = {} } = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     credentials: 'include',
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
 
@@ -25,6 +25,7 @@ export async function apiRequest(path, { method = 'GET', body } = {}) {
     const error = new Error(data?.error?.message || `Request failed with status ${response.status}`);
     error.status = response.status;
     error.code = data?.error?.code;
+    error.details = data?.error?.details;
     throw error;
   }
 

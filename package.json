@@ -11,6 +11,7 @@
     "dev": "node --watch server/server.js",
     "start": "node server/server.js",
     "seed": "node server/scripts/seed.js",
+    "test": "node --test --test-force-exit \"tests/integration/*.test.js\"",
     "client": "npm --prefix client run dev",
     "build": "npm --prefix client install && npm --prefix client run build"
   },

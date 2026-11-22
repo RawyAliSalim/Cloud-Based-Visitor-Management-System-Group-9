@@ -10,6 +10,8 @@ const STAFF_ROLES = ['front-desk', 'admin'];
 
 router.get('/', requireAuth, requireRole(...ALL_ROLES), checkinController.listVisits);
 router.get('/on-site', requireAuth, requireRole(...STAFF_ROLES), checkinController.listOnSite);
+router.get('/reports/activity', requireAuth, requireRole(...STAFF_ROLES), checkinController.activityReport);
+router.get('/reports/export', requireAuth, requireRole(...STAFF_ROLES), checkinController.exportVisits);
 router.get('/:id', requireAuth, requireRole(...ALL_ROLES), validateIdParam, checkinController.getVisit);
 router.post('/:id/check-in', requireAuth, requireRole(...STAFF_ROLES), validateIdParam, checkinController.checkIn);
 router.post('/:id/check-out', requireAuth, requireRole(...STAFF_ROLES), validateIdParam, checkinController.checkOut);

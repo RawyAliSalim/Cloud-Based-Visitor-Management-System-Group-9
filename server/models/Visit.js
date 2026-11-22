@@ -14,14 +14,51 @@ const visitSchema = new mongoose.Schema(
     },
     checkInTime: { type: Date },
     checkOutTime: { type: Date },
+    checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    checkedOutBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Append-only record of every status change, so the visit history cannot silently drift.
+    statusHistory: {
+      type: [
+        {
+          _id: false,
+          from: { type: String, default: null },
+          to: { type: String, required: true },
+          at: { type: Date, required: true },
+          by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+        }
+      ],
+      default: []
+    },
     cancelledAt: { type: Date },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Client-generated Idempotency-Key, so a double-submitted registration creates one visit.
+    registrationKey: { type: String, maxlength: 100, select: false }
   },
   { timestamps: true }
 );
 
+// Allowed status changes. Anything else is an invalid transition.
+visitSchema.statics.TRANSITIONS = Object.freeze({
+  Expected: ['Checked-in', 'Cancelled'],
+  'Checked-in': ['Checked-out'],
+  'Checked-out': [],
+  Cancelled: []
+});
+
+visitSchema.pre('save', function recordCreation(next) {
+  if (this.isNew && this.statusHistory.length === 0) {
+    this.statusHistory.push({ from: null, to: this.status, at: this.createdAt || new Date(), by: this.createdBy });
+  }
+  next();
+});
+
+visitSchema.index({ checkInTime: -1 });
 visitSchema.index({ status: 1, expectedArrival: -1 });
 visitSchema.index({ hostId: 1, expectedArrival: -1 });
 visitSchema.index({ visitorId: 1 });
+visitSchema.index(
+  { createdBy: 1, registrationKey: 1 },
+  { name: 'registrationKey_unique', unique: true, partialFilterExpression: { registrationKey: { $type: 'string' } } }
+);
 
 module.exports = mongoose.models.Visit || mongoose.model('Visit', visitSchema);

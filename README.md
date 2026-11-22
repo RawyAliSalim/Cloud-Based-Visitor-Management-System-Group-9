@@ -61,5 +61,23 @@ Visitor Management System for the Introduction to Cloud Computing course (25CSCI
 
 Errors always use `{ "error": { "code": "UPPER_SNAKE", "message": "..." } }`.
 
+## Run with Docker (local development)
+Docker runs MongoDB and the API locally; production still deploys to Vercel + MongoDB Atlas.
+```
+docker compose up -d --build                     # API on http://localhost:3000, MongoDB on 127.0.0.1:27017
+docker compose exec -e SEED_PASSWORD=<min 8 chars> api npm run seed
+npm --prefix client install && npm run client    # web app on http://localhost:5173 (proxies /api)
+```
+If a local MongoDB already uses port 27017, set `MONGO_HOST_PORT=27018` before `docker compose up`.
+
 ## Testing
-Import `tests/postman/visitor-management.postman_collection.json` into Postman, set `baseUrl` and `password`, then run the folders in order: Auth, Visitor Registration, Check-in and Visitor Log, Notifications.
+Automated integration tests use Node's built-in test runner against a real MongoDB. Each test file creates and drops its own `vms_test_*` database.
+```
+docker compose run --rm --build test             # everything inside Docker
+npm test                                         # or locally, with TEST_MONGODB_URI=mongodb://127.0.0.1:27017
+```
+Tests refuse to run against a `mongodb+srv://` (Atlas) URI.
+
+Logs are one JSON line per event (`http.request`, `visit.checked_in`, ...). Every response carries an `X-Request-Id` header that appears in the matching log line. Set `LOG_LEVEL` to `debug`, `info`, `warn`, `error` or `silent`.
+
+Manual API tests: import `tests/postman/visitor-management.postman_collection.json` into Postman, set `baseUrl` and `password`, then run the folders in order: Auth, Visitor Registration, Check-in and Visitor Log, Notifications.
