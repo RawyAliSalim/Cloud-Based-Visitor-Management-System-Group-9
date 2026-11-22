@@ -9,6 +9,7 @@ import VisitDetails from './pages/VisitDetails';
 import CheckInOut from './pages/CheckInOut';
 import OnSite from './pages/OnSite';
 import Notifications from './pages/Notifications';
+import Reports from './pages/Reports';
 
 const STAFF_ROLES = ['front-desk', 'admin'];
 
@@ -41,6 +42,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={STAFF_ROLES}>
               <OnSite />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="reports"
+          element={
+            <ProtectedRoute roles={STAFF_ROLES}>
+              <Reports />
             </ProtectedRoute>
           }
         />
