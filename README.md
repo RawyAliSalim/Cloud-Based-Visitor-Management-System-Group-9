@@ -70,6 +70,9 @@ npm --prefix client install && npm run client    # web app on http://localhost:5
 ```
 If a local MongoDB already uses port 27017, set `MONGO_HOST_PORT=27018` before `docker compose up`.
 
+## AWS (Docker + AWS CLI v2)
+The Docker stack includes floci, a local AWS emulator. AWS CLI v2 scripts in `scripts/aws/` keep the app secrets in **Secrets Manager** and store encrypted MongoDB backups in **S3**. See [docs/aws.md](docs/aws.md).
+
 ## Testing
 Automated integration tests use Node's built-in test runner against a real MongoDB. Each test file creates and drops its own `vms_test_*` database.
 ```
@@ -79,5 +82,7 @@ npm test                                         # or locally, with TEST_MONGODB
 Tests refuse to run against a `mongodb+srv://` (Atlas) URI.
 
 Logs are one JSON line per event (`http.request`, `visit.checked_in`, ...). Every response carries an `X-Request-Id` header that appears in the matching log line. Set `LOG_LEVEL` to `debug`, `info`, `warn`, `error` or `silent`.
+
+Deployment steps and the manual test checklist: [docs/deployment-and-manual-testing.md](docs/deployment-and-manual-testing.md).
 
 Manual API tests: import `tests/postman/visitor-management.postman_collection.json` into Postman, set `baseUrl` and `password`, then run the folders in order: Auth, Visitor Registration, Check-in and Visitor Log, Notifications.
