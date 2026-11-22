@@ -1,6 +1,14 @@
 const STATUS_STYLES = {
+  Pending: 'bg-blue-100 text-blue-800',
   Sent: 'bg-green-100 text-green-800',
-  Failed: 'bg-red-100 text-red-800'
+  Retrying: 'bg-amber-100 text-amber-800',
+  Failed: 'bg-red-100 text-red-800',
+  Cancelled: 'bg-gray-200 text-gray-700'
+};
+
+const REASON_LABELS = {
+  ALREADY_ACKNOWLEDGED: 'Stopped: host already acknowledged',
+  VISIT_NO_LONGER_ON_SITE: 'Stopped: visitor already left'
 };
 
 const CHANNEL_LABELS = {
@@ -25,7 +33,8 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
   const visitorName = personName(visit && visit.visitorId) || 'Visitor';
   const hostName = personName(notification.hostId);
   const acknowledged = Boolean(notification.acknowledgedAt);
-  const failed = notification.status === 'Failed';
+  const failed = notification.status === 'Failed' || notification.status === 'Retrying';
+  const resendable = failed && !notification.supersededBy && !acknowledged;
 
   return (
     <li className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -40,10 +49,18 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
           <p className="text-xs text-gray-500">
             Attempted: {formatDate(notification.createdAt)}
             {notification.resendOf && ' · Resend attempt'}
+            {notification.attempts > 1 && ` · ${notification.attempts} delivery attempts`}
           </p>
+          {notification.status === 'Retrying' && notification.nextRetryAt && (
+            <p className="text-xs text-amber-700">Next automatic retry: {formatDate(notification.nextRetryAt)}</p>
+          )}
           {failed && notification.error && (
             <p className="text-xs text-red-600">Reason: {notification.error}</p>
           )}
+          {notification.status === 'Cancelled' && (
+            <p className="text-xs text-gray-500">{REASON_LABELS[notification.error] || 'Retries stopped'}</p>
+          )}
+          {notification.supersededBy && <p className="text-xs text-gray-500">Already resent</p>}
         </div>
 
         <div className="flex flex-col items-end gap-2">
@@ -54,7 +71,7 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
             {acknowledged ? `Acknowledged ${formatDate(notification.acknowledgedAt)}` : 'Not acknowledged'}
           </span>
 
-          {canAcknowledge && !acknowledged && (
+          {canAcknowledge && !acknowledged && visit?.status === 'Checked-in' && (
             <button
               type="button"
               onClick={() => onAcknowledge(notification._id)}
@@ -65,7 +82,7 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
             </button>
           )}
 
-          {canResend && failed && (
+          {canResend && resendable && (
             <button
               type="button"
               onClick={() => onResend(notification._id)}
