@@ -1,12 +1,69 @@
+const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Visit = require('../models/Visit');
 const Visitor = require('../models/Visitor');
 const { sendEmail } = require('./email.service');
 const { sendPush } = require('./push.service');
+const logger = require('../utils/logger');
 
 const CHANNELS = ['email', 'push'];
 const LIST_LIMIT = 200;
+const LEASE_MS = 60 * 1000;
+const ATTEMPT_LOG_LIMIT = 20;
+
+// Errors that will not go away by trying again: configuration problems, missing
+// addresses or tokens, and provider 4xx responses other than 429 (rate limited).
+const PERMANENT_ERRORS = new Set([
+  'EMAIL_NOT_CONFIGURED',
+  'HOST_EMAIL_MISSING',
+  'PUSH_NOT_CONFIGURED',
+  'NO_PUSH_TOKEN',
+  'HOST_NOT_FOUND',
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+  'messaging/invalid-argument'
+]);
+
+function numberFromEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function settings() {
+  return {
+    maxAttempts: Math.max(1, numberFromEnv('NOTIFICATION_MAX_ATTEMPTS', 5)),
+    baseDelayMs: numberFromEnv('NOTIFICATION_RETRY_BASE_SECONDS', 30) * 1000,
+    maxDelayMs: numberFromEnv('NOTIFICATION_RETRY_MAX_SECONDS', 900) * 1000,
+    inlineRetries: numberFromEnv('NOTIFICATION_INLINE_RETRIES', 1),
+    inlineDelayMs: numberFromEnv('NOTIFICATION_INLINE_RETRY_MS', 300),
+    resendCooldownMs: numberFromEnv('NOTIFICATION_RESEND_COOLDOWN_SECONDS', 30) * 1000,
+    escalationMs: numberFromEnv('NOTIFICATION_ESCALATION_MINUTES', 10) * 60 * 1000
+  };
+}
+
+function isRetryable(code) {
+  if (PERMANENT_ERRORS.has(code)) {
+    return false;
+  }
+  const provider = /^EMAIL_PROVIDER_ERROR_(\d{3})$/.exec(code || '');
+  if (provider) {
+    const status = Number(provider[1]);
+    return status === 429 || status >= 500;
+  }
+  return true;
+}
+
+// Exponential backoff with +-20% jitter: 30 s, 60 s, 120 s, ... capped at 15 min.
+function retryDelayMs(attempts, config = settings()) {
+  const exponential = config.baseDelayMs * 2 ** Math.max(0, attempts - 1);
+  const capped = Math.min(exponential, config.maxDelayMs);
+  return Math.round(capped * (0.8 + Math.random() * 0.4));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function safeError(error) {
   const text = error && error.message ? String(error.message) : 'UNKNOWN_ERROR';
@@ -43,7 +100,7 @@ function buildMessage(visitorName) {
 async function loadDeliveryContext(visitId, hostId) {
   const [visit, host] = await Promise.all([
     Visit.findById(visitId).populate({ path: 'visitorId', model: Visitor, select: 'fullName name' }),
-    User.findById(hostId).select('name fullName email fcmTokens')
+    User.findById(hostId).select('name fullName email fcmTokens active')
   ]);
 
   const visitor = visit ? visit.visitorId : null;
@@ -58,8 +115,14 @@ async function removeInvalidTokens(hostId, tokens) {
   await User.updateOne({ _id: hostId }, { $pull: { fcmTokens: { $in: tokens } } }).catch(() => null);
 }
 
+// One delivery attempt on one channel. Never throws.
 async function deliver(channel, context) {
+  const started = Date.now();
   try {
+    if (!context) {
+      throw new Error('DELIVERY_CONTEXT_UNAVAILABLE');
+    }
+
     const { host, message } = context;
 
     if (!host) {
@@ -85,12 +148,88 @@ async function deliver(channel, context) {
       }
     }
 
-    return { status: 'Sent', sentAt: new Date() };
+    return { ok: true, durationMs: Date.now() - started };
   } catch (error) {
-    return { status: 'Failed', error: safeError(error) };
+    const code = safeError(error);
+    return { ok: false, error: code, retryable: isRetryable(code), durationMs: Date.now() - started };
   }
 }
 
+// Runs one attempt (plus `inlineRetries` quick retries for temporary errors), then stores the
+// outcome: Sent, Retrying (with nextRetryAt) or Failed.
+async function runAttempts(notification, context, inlineRetries) {
+  const config = settings();
+  const maxAttempts = notification.maxAttempts || config.maxAttempts;
+  let attempts = notification.attempts || 0;
+  const log = [];
+  let outcome;
+
+  for (let round = 0; round <= inlineRetries; round += 1) {
+    attempts += 1;
+    outcome = await deliver(notification.channel, context);
+    log.push({
+      at: new Date(),
+      status: outcome.ok ? 'Sent' : 'Failed',
+      error: outcome.error,
+      retryable: outcome.ok ? undefined : outcome.retryable,
+      durationMs: outcome.durationMs
+    });
+    if (outcome.ok || !outcome.retryable || attempts >= maxAttempts) {
+      break;
+    }
+    await sleep(config.inlineDelayMs);
+  }
+
+  const now = new Date();
+  const set = { attempts, lastAttemptAt: now, lockedUntil: null };
+  const unset = {};
+  if (outcome.ok) {
+    Object.assign(set, { status: 'Sent', sentAt: now, nextRetryAt: null });
+    unset.error = '';
+  } else if (outcome.retryable && attempts < maxAttempts) {
+    Object.assign(set, { status: 'Retrying', error: outcome.error, nextRetryAt: new Date(now.getTime() + retryDelayMs(attempts, config)) });
+  } else {
+    Object.assign(set, { status: 'Failed', error: outcome.error, nextRetryAt: null });
+  }
+
+  const update = { $set: set, $push: { attemptLog: { $each: log, $slice: -ATTEMPT_LOG_LIMIT } } };
+  if (Object.keys(unset).length) {
+    update.$unset = unset;
+  }
+
+  // Only finish notifications that are still in flight; if the host acknowledged meanwhile
+  // (status Cancelled) keep that, but still record the attempt.
+  const saved = await Notification.findOneAndUpdate(
+    { _id: notification._id, status: { $in: ['Pending', 'Retrying'] } },
+    update,
+    { new: true }
+  );
+
+  const result =
+    saved ||
+    (await Notification.findByIdAndUpdate(
+      notification._id,
+      { $set: { attempts, lastAttemptAt: now, lockedUntil: null }, $push: update.$push },
+      { new: true }
+    ));
+
+  logger[outcome.ok ? 'info' : 'warn']('notification.attempt', {
+    notificationId: String(notification._id),
+    visitId: String(notification.visitId),
+    channel: notification.channel,
+    attempts,
+    status: result ? result.status : set.status,
+    error: outcome.error
+  });
+
+  return result;
+}
+
+function dedupeKey(visitId, channel) {
+  return `${visitId}:${channel}:arrival`;
+}
+
+// Called by the check-in service. Never throws, so a notification problem never blocks check-in.
 async function sendArrivalNotification(visit) {
   try {
     if (!visit || !visit._id || !visit.hostId) {
@@ -99,25 +238,106 @@ async function sendArrivalNotification(visit) {
 
     const visitId = visit._id;
     const hostId = refId(visit.hostId);
+    const config = settings();
     const context = await loadDeliveryContext(visitId, hostId).catch(() => null);
 
-    const results = context
-      ? await Promise.all(CHANNELS.map((channel) => deliver(channel, context)))
-      : CHANNELS.map(() => ({ status: 'Failed', error: 'DELIVERY_CONTEXT_UNAVAILABLE' }));
-
-    return await Notification.insertMany(
-      CHANNELS.map((channel, index) => ({ visitId, hostId, channel, ...results[index] }))
+    const results = await Promise.all(
+      CHANNELS.map(async (channel) => {
+        let record;
+        try {
+          // The record is stored before delivery, so a crash mid-delivery still leaves a trace to retry.
+          record = await Notification.create({
+            visitId,
+            hostId,
+            channel,
+            status: 'Pending',
+            maxAttempts: config.maxAttempts,
+            dedupeKey: dedupeKey(visitId, channel)
+          });
+        } catch (error) {
+          if (error.code === 11000) {
+            logger.warn('notification.duplicate_prevented', { visitId: String(visitId), channel });
+            return Notification.findOne({ dedupeKey: dedupeKey(visitId, channel) });
+          }
+          throw error;
+        }
+        return runAttempts(record, context, config.inlineRetries);
+      })
     );
+
+    return results.filter(Boolean);
   } catch (error) {
-    console.error('Arrival notification could not be saved:', safeError(error));
+    logger.error('notification.arrival_failed', { error: safeError(error) });
     return [];
   }
+}
+
+async function cancelRetries(filter, reason) {
+  const result = await Notification.updateMany(
+    { ...filter, status: { $in: ['Pending', 'Retrying'] } },
+    { $set: { status: 'Cancelled', error: reason, nextRetryAt: null, lockedUntil: null } }
+  );
+  return result.modifiedCount || 0;
+}
+
+// Delivers due automatic retries. Safe to run from several places at once: each notification
+// is claimed with a short lease before it is delivered.
+async function processDueRetries({ limit = 20 } = {}) {
+  const summary = { processed: 0, sent: 0, retrying: 0, failed: 0, cancelled: 0 };
+
+  for (let index = 0; index < limit; index += 1) {
+    const now = new Date();
+    const claimed = await Notification.findOneAndUpdate(
+      {
+        status: 'Retrying',
+        nextRetryAt: { $lte: now },
+        supersededBy: null,
+        $or: [{ lockedUntil: null }, { lockedUntil: { $lte: now } }]
+      },
+      { $set: { lockedUntil: new Date(now.getTime() + LEASE_MS) } },
+      { new: true, sort: { nextRetryAt: 1 } }
+    );
+
+    if (!claimed) {
+      break;
+    }
+    summary.processed += 1;
+
+    const [visit, acknowledged] = await Promise.all([
+      Visit.findById(claimed.visitId).select('status').lean(),
+      Notification.exists({ visitId: claimed.visitId, hostId: claimed.hostId, acknowledgedAt: { $ne: null } })
+    ]);
+
+    let reason = null;
+    if (!visit || visit.status !== 'Checked-in') {
+      reason = 'VISIT_NO_LONGER_ON_SITE';
+    } else if (acknowledged) {
+      reason = 'ALREADY_ACKNOWLEDGED';
+    }
+
+    if (reason) {
+      await cancelRetries({ _id: claimed._id }, reason);
+      summary.cancelled += 1;
+      logger.info('notification.retry_cancelled', { notificationId: String(claimed._id), reason });
+      continue;
+    }
+
+    const context = await loadDeliveryContext(claimed.visitId, claimed.hostId).catch(() => null);
+    const result = await runAttempts(claimed, context, 0);
+    const status = result ? result.status : 'Failed';
+    if (status === 'Sent') summary.sent += 1;
+    else if (status === 'Retrying') summary.retrying += 1;
+    else summary.failed += 1;
+  }
+
+  return summary;
 }
 
 async function listNotifications(filter) {
   return Notification.find(filter)
     .sort({ createdAt: -1 })
     .limit(LIST_LIMIT)
+    .select('-dedupeKey -lockedUntil')
     .populate({ path: 'hostId', model: User, select: 'name fullName' })
     .populate({
       path: 'visitId',
@@ -132,25 +352,178 @@ async function findNotificationById(id) {
   return Notification.findById(id);
 }
 
-async function acknowledgeNotification(id) {
-  return Notification.findOneAndUpdate(
-    { _id: id, acknowledgedAt: null },
-    { $set: { acknowledgedAt: new Date() } },
-    { new: true }
-  );
+async function findVisitStatus(visitId) {
+  const visit = await Visit.findById(visitId).select('status').lean();
+  return visit ? visit.status : null;
 }
 
-async function resendNotification(original) {
-  const context = await loadDeliveryContext(original.visitId, original.hostId);
-  const result = await deliver(original.channel, context);
+// The host acknowledges the arrival, not a single channel: every notification of that visit
+// is marked, and pending retries are stopped so the host is not notified again.
+async function acknowledgeNotification(id, userId) {
+  const notification = await Notification.findById(id);
+  if (!notification) {
+    return null;
+  }
+  const now = new Date();
+  const scope = { visitId: notification.visitId, hostId: notification.hostId };
+  const result = await Notification.updateMany(
+    { ...scope, acknowledgedAt: null },
+    { $set: { acknowledgedAt: now, acknowledgedBy: userId } }
+  );
+  if (!result.modifiedCount) {
+    return null;
+  }
+  const stoppedRetries = await cancelRetries(scope, 'ALREADY_ACKNOWLEDGED');
+  logger.info('notification.acknowledged', {
+    visitId: String(notification.visitId),
+    hostId: String(notification.hostId),
+    responseSeconds: Math.round((now - notification.createdAt) / 1000),
+    stoppedRetries
+  });
+  const updated = await Notification.findById(id).select('-dedupeKey -lockedUntil').lean();
+  return { ...updated, acknowledgedCount: result.modifiedCount, stoppedRetries };
+}
 
-  return Notification.create({
+function resendCooldownRemaining(notification) {
+  const { resendCooldownMs } = settings();
+  const last = notification.lastAttemptAt || notification.createdAt;
+  const remaining = resendCooldownMs - (Date.now() - new Date(last).getTime());
+  return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+}
+
+// Manual resend by staff. Atomically marks the original as replaced, so two clicks (or two
+// staff members) cannot create two resends of the same failed notification.
+async function resendNotification(original) {
+  const newId = new mongoose.Types.ObjectId();
+  const claimed = await Notification.findOneAndUpdate(
+    { _id: original._id, supersededBy: null, status: { $in: ['Failed', 'Retrying'] } },
+    {
+      $set: {
+        supersededBy: newId,
+        nextRetryAt: null,
+        lockedUntil: null,
+        ...(original.status === 'Retrying' ? { status: 'Cancelled' } : {})
+      }
+    },
+    { new: true }
+  );
+
+  if (!claimed) {
+    return null;
+  }
+
+  const config = settings();
+  const attempt = await Notification.create({
+    _id: newId,
     visitId: original.visitId,
     hostId: original.hostId,
     channel: original.channel,
     resendOf: original._id,
-    ...result
+    status: 'Pending',
+    maxAttempts: config.maxAttempts
   });
+
+  const context = await loadDeliveryContext(original.visitId, original.hostId).catch(() => null);
+  const result = await runAttempts(attempt, context, config.inlineRetries);
+  logger.info('notification.resent', { originalId: String(original._id), notificationId: String(newId), status: result.status });
+  return Notification.findById(newId).select('-dedupeKey -lockedUntil').lean();
+}
+
+// Front-desk overview: delivery health, retries and hosts who have not responded yet.
+async function notificationSummary({ hours = 24 } = {}) {
+  const config = settings();
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+  const [byStatus, byChannel, ackTimes, onSiteVisits] = await Promise.all([
+    Notification.aggregate([{ $match: { createdAt: { $gte: since } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Notification.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      {
+        $group: {
+          _id: '$channel',
+          total: { $sum: 1 },
+          sent: { $sum: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
+          attempts: { $sum: '$attempts' }
+        }
+      }
+    ]),
+    Notification.aggregate([
+      { $match: { createdAt: { $gte: since }, acknowledgedAt: { $ne: null }, resendOf: null } },
+      { $group: { _id: '$visitId', notifiedAt: { $min: '$createdAt' }, acknowledgedAt: { $min: '$acknowledgedAt' } } },
+      { $group: { _id: null, average: { $avg: { $subtract: ['$acknowledgedAt', '$notifiedAt'] } }, count: { $sum: 1 } } }
+    ]),
+    Visit.find({ status: 'Checked-in' })
+      .select('_id visitorId hostId checkInTime')
+      .populate('visitorId', 'fullName')
+      .populate('hostId', 'name')
+      .lean()
+  ]);
+
+  const visitIds = onSiteVisits.map((visit) => visit._id);
+  const perVisit = visitIds.length
+    ? await Notification.aggregate([
+        { $match: { visitId: { $in: visitIds } } },
+        {
+          $group: {
+            _id: '$visitId',
+            firstNotifiedAt: { $min: '$createdAt' },
+            acknowledged: { $max: { $cond: [{ $ne: ['$acknowledgedAt', null] }, 1, 0] } },
+            delivered: { $max: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
+            needsResend: {
+              $max: { $cond: [{ $and: [{ $eq: ['$status', 'Failed'] }, { $eq: ['$supersededBy', null] }] }, 1, 0] }
+            }
+          }
+        }
+      ])
+    : [];
+  const stats = new Map(perVisit.map((row) => [String(row._id), row]));
+
+  const awaitingAcknowledgement = [];
+  const undelivered = [];
+  onSiteVisits.forEach((visit) => {
+    const row = stats.get(String(visit._id));
+    if (!row || row.acknowledged) {
+      return;
+    }
+    const item = {
+      visitId: visit._id,
+      visitor: visit.visitorId ? visit.visitorId.fullName : null,
+      host: visit.hostId ? visit.hostId.name : null,
+      notifiedAt: row.firstNotifiedAt,
+      minutesWaiting: Math.round((Date.now() - new Date(row.firstNotifiedAt).getTime()) / 60000)
+    };
+    if (!row.delivered && row.needsResend) {
+      undelivered.push(item);
+    }
+    if (Date.now() - new Date(row.firstNotifiedAt).getTime() >= config.escalationMs) {
+      awaitingAcknowledgement.push(item);
+    }
+  });
+
+  const counts = Object.fromEntries(Notification.STATUSES.map((status) => [status, 0]));
+  byStatus.forEach((row) => {
+    counts[row._id] = row.count;
+  });
+
+  return {
+    windowHours: hours,
+    counts,
+    channels: byChannel.map((row) => ({
+      channel: row._id,
+      total: row.total,
+      sent: row.sent,
+      deliveryRate: row.total ? Number((row.sent / row.total).toFixed(3)) : 0,
+      averageAttempts: row.total ? Number((row.attempts / row.total).toFixed(2)) : 0
+    })),
+    acknowledgement: {
+      acknowledgedVisits: ackTimes[0] ? ackTimes[0].count : 0,
+      averageSeconds: ackTimes[0] ? Math.round(ackTimes[0].average / 1000) : null
+    },
+    escalationMinutes: Math.round(config.escalationMs / 60000),
+    awaitingAcknowledgement,
+    undelivered,
+    generatedAt: new Date()
+  };
 }
 
 async function saveFcmToken(userId, token) {
@@ -161,9 +534,15 @@ async function saveFcmToken(userId, token) {
 
 module.exports = {
   sendArrivalNotification,
+  processDueRetries,
   listNotifications,
   findNotificationById,
+  findVisitStatus,
   acknowledgeNotification,
   resendNotification,
-  saveFcmToken
+  resendCooldownRemaining,
+  notificationSummary,
+  saveFcmToken,
+  isRetryable,
+  retryDelayMs
 };
