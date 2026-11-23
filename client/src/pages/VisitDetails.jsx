@@ -7,6 +7,22 @@ import { getNotifications } from '../api/notifications';
 import StatusBadge from '../components/StatusBadge';
 import { formatDateTime, formatMinutes } from '../components/VisitTable';
 
+const CHANNEL_NAMES = { email: 'email', push: 'browser push' };
+
+// Says what really happened to the host notifications instead of always "Host notified".
+function checkInMessage(result) {
+  const notifications = result?.notifications || [];
+  const sent = notifications.filter((item) => item.status === 'Sent').map((item) => CHANNEL_NAMES[item.channel]);
+  const retrying = notifications.filter((item) => item.status === 'Retrying');
+  if (sent.length > 0) {
+    return `Visitor checked in. Host notified by ${sent.join(' and ')}.`;
+  }
+  if (retrying.length > 0) {
+    return 'Visitor checked in. The host notification hit a temporary error and will be retried automatically.';
+  }
+  return 'Visitor checked in, but the host could not be notified. Resend it from the notifications below or contact the host.';
+}
+
 function Field({ label, children }) {
   return (
     <div>
@@ -47,13 +63,14 @@ export default function VisitDetails() {
     load();
   }, [load]);
 
+  // successMessage can be text or a function that builds the text from the API result.
   async function runAction(action, successMessage) {
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      await action(id);
-      setMessage(successMessage);
+      const result = await action(id);
+      setMessage(typeof successMessage === 'function' ? successMessage(result) : successMessage);
       await load();
     } catch (err) {
       setError(err.message);
@@ -108,7 +125,7 @@ export default function VisitDetails() {
           {isStaff && visit.status === 'Expected' && (
             <button
               type="button"
-              onClick={() => runAction(checkInVisit, 'Visitor checked in. Host notified.')}
+              onClick={() => runAction(checkInVisit, checkInMessage)}
               disabled={busy}
               className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
@@ -196,8 +213,8 @@ export default function VisitDetails() {
                   {item.resendOf && ' · Resend'}
                 </span>
                 <span className={item.status === 'Sent' ? 'text-green-700' : 'text-red-700'}>
-                  {item.status}
-                  {item.status === 'Failed' && item.error && ` (${item.error})`}
+                  Delivery: {item.status}
+                  {(item.status === 'Failed' || item.status === 'Retrying') && item.error && ` (${item.error})`}
                 </span>
               </li>
             ))}
