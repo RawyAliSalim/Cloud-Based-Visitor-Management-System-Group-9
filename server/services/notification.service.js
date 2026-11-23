@@ -86,12 +86,21 @@ function refId(value) {
   return value && value._id ? value._id : value;
 }
 
+function notificationsLink() {
+  const base = (process.env.APP_URL || '').trim().replace(/\/$/, '');
+  return /^https?:\/\//.test(base) ? `${base}/notifications` : null;
+}
+
 function buildMessage(visitorName) {
   const who = visitorName || 'Your visitor';
+  const link = notificationsLink();
+  const action = link
+    ? `<p><a href="${escapeHtml(link)}">Open the Visitor Management System</a> to acknowledge this notification.</p>`
+    : '<p>Open the Visitor Management System to acknowledge this notification.</p>';
   return {
     subject: `${who} has arrived`,
-    text: `${who} has checked in at the front desk and is waiting for you. Open the Visitor Management System to acknowledge this notification.`,
-    html: `<p><strong>${escapeHtml(who)}</strong> has checked in at the front desk and is waiting for you.</p><p>Open the Visitor Management System to acknowledge this notification.</p>`,
+    text: `${who} has checked in at the front desk and is waiting for you. Acknowledge it here: ${link || 'the Visitor Management System'}`,
+    html: `<p><strong>${escapeHtml(who)}</strong> has checked in at the front desk and is waiting for you.</p>${action}`,
     title: 'Visitor arrived',
     body: `${who} has checked in and is waiting for you.`
   };

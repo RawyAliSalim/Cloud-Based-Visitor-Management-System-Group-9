@@ -23,9 +23,13 @@ let notificationService;
 
 before(async () => {
   fakeEmail.server = http.createServer((req, res) => {
-    req.resume();
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
     req.on('end', () => {
       fakeEmail.received += 1;
+      fakeEmail.lastBody = raw;
       const status = fakeEmail.queue.length ? fakeEmail.queue.shift() : 201;
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ messageId: 'fake' }));
@@ -41,7 +45,8 @@ before(async () => {
     NOTIFICATION_INLINE_RETRY_MS: '10',
     NOTIFICATION_RESEND_COOLDOWN_SECONDS: '0',
     NOTIFICATION_MAX_ATTEMPTS: '5',
-    CRON_SECRET: 'test-cron-secret-value'
+    CRON_SECRET: 'test-cron-secret-value',
+    APP_URL: 'https://vms.example.test/'
   });
   frontDesk = await ctx.loginAs('frontDesk');
   host1 = await ctx.loginAs('host1');
@@ -214,6 +219,18 @@ describe('automatic retries', () => {
     for (let attempts = 1; attempts <= 12; attempts += 1) {
       assert.ok(notificationService.retryDelayMs(attempts) <= 900 * 1000 * 1.2);
     }
+  });
+});
+
+describe('arrival email content', () => {
+  test('the email names the visitor, goes to the host and links to the notifications page', async () => {
+    await checkedInVisit();
+    const sent = JSON.parse(fakeEmail.lastBody);
+    assert.equal(sent.to[0].email, 'host1@test.local');
+    assert.equal(sent.sender.email, 'vms@test.local');
+    assert.match(sent.subject, /^Notify Guest \d+ has arrived$/);
+    assert.ok(sent.htmlContent.includes('href="https://vms.example.test/notifications"'));
+    assert.ok(sent.textContent.includes('https://vms.example.test/notifications'));
   });
 });
 
