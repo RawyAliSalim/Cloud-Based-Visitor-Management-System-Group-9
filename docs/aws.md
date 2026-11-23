@@ -45,5 +45,11 @@ aws secretsmanager list-secret-version-ids --secret-id vms/local/app-config
 ```
 If your machine has the `floci` profile (`~/.aws/config` with `endpoint_url = http://localhost:4566`), `AWS_PROFILE=floci aws ...` works too.
 
+## floci web dashboard (optional)
+```bash
+docker compose --profile ui up -d floci-dash    # http://localhost:8080
+```
+Shows the S3 bucket and its backup files and the Secrets Manager secret (metadata) in a browser. It is read through floci's API only; it is deliberately not given the Docker socket, so it cannot control containers on your PC. Change the port with `FLOCI_DASH_HOST_PORT`.
+
 ## Settings
 `VMS_BACKUP_BUCKET` (default `vms-backups-local`), `VMS_SECRET_ID` (default `vms/local/app-config`), `FLOCI_HOST_PORT` (default 4566), `AWS_ENDPOINT_URL`, `AWS_REGION`.

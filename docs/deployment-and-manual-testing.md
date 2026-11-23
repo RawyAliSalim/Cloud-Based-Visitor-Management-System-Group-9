@@ -42,6 +42,24 @@
 
 Without email or Firebase keys the app still works; arrival notifications are then recorded as **Failed** with the reason (`EMAIL_NOT_CONFIGURED`, `PUSH_NOT_CONFIGURED`). That is also useful for testing the resend and summary features.
 
+### B3. Real arrival emails (Brevo, free plan)
+1. Sign up at https://www.brevo.com (free: 300 emails/day).
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender**: use an address you can open (e.g. your Gmail) and click the confirmation link Brevo emails you.
+3. **SMTP & API → API keys → Generate a new API key** (name it `vms-vercel`). Copy it once; Brevo does not show it again.
+4. Vercel → project → **Settings → Environment Variables**, add:
+   - `EMAIL_API_KEY` = the Brevo API key
+   - `EMAIL_FROM` = the verified sender address from step 2
+   - `APP_URL` and `CORS_ORIGINS` = your site URL (e.g. `https://<project>.vercel.app`), so the email links to the Notifications page
+   Then **Deployments → ⋯ → Redeploy** (environment variables only apply to new deployments).
+5. Give Host One a real inbox. Run the seed again with `SEED_HOST_EMAIL` (moves `host1@vms.local` to that address; nothing else changes):
+   ```powershell
+   $env:MONGODB_URI = '<Atlas connection string>'; $env:SEED_PASSWORD = '<demo password>'; $env:SEED_HOST_EMAIL = '<your inbox>'; npm run seed
+   ```
+   Host One then signs in with that new email address.
+6. Register and check in a visit for Host One: the visit page says "Host notified by email", the notification shows **Delivery: Sent**, and the email arrives (check spam the first time).
+
+Brevo errors are recorded on the notification: `EMAIL_PROVIDER_ERROR_401` = wrong API key, `EMAIL_PROVIDER_ERROR_400` = sender not verified. Temporary provider errors (5xx, 429, timeouts) are retried automatically.
+
 ## Part C: Manual test checklist
 Use two browser windows: a normal one for **front desk** and a private/incognito one for **host1** (each has its own session). Tick each row and take screenshots as evidence.
 
@@ -102,7 +120,7 @@ Use two browser windows: a normal one for **front desk** and a private/incognito
 | 6.3 | Visitor log: filter by status, visitor name, dates | Correct rows only |
 | 6.4 | **Reports** page | Totals, attendance, average visit, by host, per day, busiest hours |
 | 6.5 | **Export CSV** | A CSV file downloads and opens in Excel |
-| 6.6 | Host1 opens `/reports` | Not allowed (redirected) |
+| 6.6 | Host1 opens `/reports` | "You do not have access to this page." (the server also refuses report data to hosts with 403) |
 
 ### 7. Docker and AWS (local, for the report)
 | # | Steps | Expected |
