@@ -32,6 +32,19 @@ async function seed() {
 
   await connectDB();
 
+  // SEED_HOST_EMAIL gives Host One a real inbox (so arrival emails can be received).
+  // An existing host1@vms.local account is moved to that address instead of creating a second Host One.
+  const hostEmail = (process.env.SEED_HOST_EMAIL || '').trim().toLowerCase();
+  if (hostEmail && hostEmail !== 'host1@vms.local') {
+    const taken = await User.exists({ email: hostEmail });
+    if (!taken) {
+      const moved = await User.updateOne({ email: 'host1@vms.local' }, { $set: { email: hostEmail } });
+      if (moved.modifiedCount) {
+        console.log('Host One email changed to SEED_HOST_EMAIL');
+      }
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   const saved = [];
   for (const user of users) {

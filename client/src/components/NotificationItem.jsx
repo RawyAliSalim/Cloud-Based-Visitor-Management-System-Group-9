@@ -64,8 +64,11 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[notification.status] || 'bg-gray-100 text-gray-800'}`}>
-            {notification.status}
+          <span
+            title="Whether the email or push message reached the host (separate from acknowledgement)"
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[notification.status] || 'bg-gray-100 text-gray-800'}`}
+          >
+            Delivery: {notification.status}
           </span>
           <span className={`text-xs ${acknowledged ? 'text-green-700' : 'text-gray-500'}`}>
             {acknowledged ? `Acknowledged ${formatDate(notification.acknowledgedAt)}` : 'Not acknowledged'}
