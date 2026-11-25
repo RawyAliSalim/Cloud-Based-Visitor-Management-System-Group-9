@@ -12,6 +12,8 @@ Browser ──► S3 static website  vms-web          (React app)
                                         └──► Lambda vms-notifications (Mohamed) ──┘──► Brevo (email API)
    Each Lambda: own IAM role, own CloudWatch log group /aws/lambda/vms-<service>
    vms-checkin also writes every exported CSV report to S3 bucket vms-reports
+   vms-checkin ──► SQS vms-arrivals ──► vms-notifications   (dead-letter queue vms-arrivals-dlq)
+   EventBridge Scheduler (every minute) ──► vms-notifications (due retries)
    Code package: S3 bucket vms-deploy-artifacts    Secrets: Secrets Manager vms/floci/app-config
 ```
 
@@ -26,7 +28,7 @@ Browser ──► S3 static website  vms-web          (React app)
 |---|---|
 | Rawy, Visitor Registration (and sign-in) | Lambda `vms-registration`, API Gateway routes (visits create/edit/cancel, visitors, auth), IAM role `vms-registration-role`, CloudWatch Logs, **Secrets Manager**: every function reads the database string, session secret and email key from `vms/floci/app-config` when it starts; the functions' environment variables hold only the secret's name, and each IAM role may read only that one secret (`server/lambda/init.js`) |
 | Mostafa, Check-in/Check-out & Visitor Log | Lambda `vms-checkin`, API Gateway routes (log, on-site, check-in/out, reports), IAM role `vms-checkin-role` (may only add files under `reports/`), CloudWatch Logs, **S3 `vms-reports`** (private, AES-256, 365-day expiry; every CSV export is archived, `X-Report-Archive` header) |
-| Mohamed, Host Notifications | Lambda `vms-notifications`, API Gateway routes (`/api/notifications…`), IAM role `vms-notifications-role`, CloudWatch Logs |
+| Mohamed, Host Notifications | Lambda `vms-notifications`, API Gateway routes (`/api/notifications…`), IAM role `vms-notifications-role`, CloudWatch Logs, **SQS** `vms-arrivals` (check-in puts each arrival on the queue and answers at once with "Queued"; the queue triggers this function, one message at a time) with dead-letter queue `vms-arrivals-dlq` (after 3 failed attempts), **EventBridge Scheduler** `vms-notification-retries` (every minute: delivers due retries, role `vms-scheduler-role` may only invoke this function) |
 | Shared (deployment) | S3 `vms-web` (public website, the only public bucket) and `vms-deploy-artifacts` (code), Secrets Manager `vms/floci/app-config` |
 
 ## Run it
@@ -56,6 +58,10 @@ aws apigatewayv2 get-routes --api-id vmsapi --query 'Items[].RouteKey' --output 
 aws iam get-role-policy --role-name vms-checkin-role --policy-name vms-checkin-policy
 aws logs tail /aws/lambda/vms-checkin --since 10m
 aws s3 ls s3://vms-reports/reports/ --recursive
+aws sqs list-queues
+aws lambda list-event-source-mappings --function-name vms-notifications
+aws scheduler get-schedule --name vms-notification-retries
+aws logs tail /aws/lambda/vms-notifications --since 10m   # arrival_processed, retries_processed every minute
 aws secretsmanager describe-secret --secret-id vms/floci/app-config
 aws lambda get-function-configuration --function-name vms-registration --query 'keys(Environment.Variables)'   # no secrets, only VMS_SECRET_ID
 ```
