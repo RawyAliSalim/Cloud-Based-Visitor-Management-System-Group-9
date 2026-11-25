@@ -24,10 +24,10 @@ Browser ──► S3 static website  vms-web          (React app)
 
 | Student / service | AWS services used by that service |
 |---|---|
-| Rawy, Visitor Registration | Lambda `vms-registration`, API Gateway routes (visits create/edit/cancel, visitors, auth), IAM role `vms-registration-role`, CloudWatch Logs |
+| Rawy, Visitor Registration (and sign-in) | Lambda `vms-registration`, API Gateway routes (visits create/edit/cancel, visitors, auth), IAM role `vms-registration-role`, CloudWatch Logs, **Secrets Manager**: every function reads the database string, session secret and email key from `vms/floci/app-config` when it starts; the functions' environment variables hold only the secret's name, and each IAM role may read only that one secret (`server/lambda/init.js`) |
 | Mostafa, Check-in/Check-out & Visitor Log | Lambda `vms-checkin`, API Gateway routes (log, on-site, check-in/out, reports), IAM role `vms-checkin-role` (may only add files under `reports/`), CloudWatch Logs, **S3 `vms-reports`** (private, AES-256, 365-day expiry; every CSV export is archived, `X-Report-Archive` header) |
 | Mohamed, Host Notifications | Lambda `vms-notifications`, API Gateway routes (`/api/notifications…`), IAM role `vms-notifications-role`, CloudWatch Logs |
-| Shared (deployment) | S3 `vms-web` (public website, the only public bucket) and `vms-deploy-artifacts` (code), Secrets Manager `vms/floci/app-config` |
+| Shared (deployment) | S3 `vms-web` (public website, the only public bucket) and `vms-deploy-artifacts` (code) |
 
 ## Run it
 
@@ -57,6 +57,7 @@ aws iam get-role-policy --role-name vms-checkin-role --policy-name vms-checkin-p
 aws logs tail /aws/lambda/vms-checkin --since 10m
 aws s3 ls s3://vms-reports/reports/ --recursive
 aws secretsmanager describe-secret --secret-id vms/floci/app-config
+aws lambda get-function-configuration --function-name vms-registration --query 'keys(Environment.Variables)'   # no secrets, only VMS_SECRET_ID
 ```
 
 The floci dashboard (`docker compose --profile ui up -d floci-dash`, http://localhost:8080) shows the same resources in a browser.

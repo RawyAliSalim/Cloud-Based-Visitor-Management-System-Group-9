@@ -62,10 +62,14 @@ for service in "${SERVICES[@]}"; do
 done
 
 # ---------- 3. Shared configuration for every function ----------
-aws secretsmanager get-secret-value --secret-id "$APP_SECRET_ID" --query SecretString --output text > "$WORK_DIR/secret.json"
-node - "$WORK_DIR/secret.json" "$WEB_URL" > "$WORK_DIR/shared-env.json" <<'NODE'
-const fs = require('fs');
-const secret = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+# Secrets are not copied into the functions' environment variables: each function gets only the
+# secret's name (VMS_SECRET_ID) and its IAM role may read exactly that secret (server/lambda/init.js).
+SECRET_ARN=$(aws secretsmanager describe-secret --secret-id "$APP_SECRET_ID" --query ARN --output text)
+for service in "${SERVICES[@]}"; do
+  add_policy_for "$service" "{\"Effect\":\"Allow\",\"Action\":[\"secretsmanager:GetSecretValue\"],\"Resource\":\"$SECRET_ARN\"}"
+done
+node - "$APP_SECRET_ID" "$WEB_URL" > "$WORK_DIR/shared-env.json" <<'NODE'
+const secretId = process.argv[2];
 const webUrl = process.argv[3];
 process.stdout.write(JSON.stringify({
   NODE_ENV: 'production',
@@ -75,10 +79,9 @@ process.stdout.write(JSON.stringify({
   APP_URL: webUrl,
   AWS_ENDPOINT_URL: 'http://floci:4566',
   NOTIFICATION_RETRY_INTERVAL_SECONDS: '0',
-  ...secret
+  VMS_SECRET_ID: secretId
 }));
 NODE
-rm -f "$WORK_DIR/secret.json"
 
 # ---------- 4. IAM role, log group and Lambda function per service ----------
 TRUST='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
