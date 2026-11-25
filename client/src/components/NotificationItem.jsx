@@ -34,7 +34,10 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
   const hostName = personName(notification.hostId);
   const acknowledged = Boolean(notification.acknowledgedAt);
   const failed = notification.status === 'Failed' || notification.status === 'Retrying';
-  const resendable = failed && !notification.supersededBy && !acknowledged;
+  // channelConfigured comes from the server: false means this channel is not set up right now,
+  // so a resend could never succeed and the button is hidden.
+  const channelReady = notification.channelConfigured !== false;
+  const resendable = failed && !notification.supersededBy && !acknowledged && channelReady;
 
   return (
     <li className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -61,6 +64,12 @@ export default function NotificationItem({ notification, canAcknowledge, canRese
             <p className="text-xs text-gray-500">{REASON_LABELS[notification.error] || 'Retries stopped'}</p>
           )}
           {notification.supersededBy && <p className="text-xs text-gray-500">Already resent</p>}
+          {canResend && failed && !channelReady && !notification.supersededBy && !acknowledged && (
+            <p className="text-xs text-gray-500">
+              Resend not available: {CHANNEL_LABELS[notification.channel] || notification.channel} is not set up on this
+              server.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col items-end gap-2">

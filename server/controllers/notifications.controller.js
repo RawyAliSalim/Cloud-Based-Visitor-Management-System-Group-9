@@ -182,6 +182,17 @@ async function resendNotification(req, res, next) {
       return sendError(res, 409, 'VISIT_NOT_ON_SITE', 'The visitor is no longer checked in');
     }
 
+    // Resending cannot help while the channel itself is not set up on this server.
+    if (!notificationService.isChannelConfigured(original.channel)) {
+      const name = original.channel === 'email' ? 'Email' : 'Browser push';
+      return sendError(
+        res,
+        409,
+        'CHANNEL_NOT_CONFIGURED',
+        `${name} notifications are not set up on this server, so resending cannot succeed`
+      );
+    }
+
     const wait = notificationService.resendCooldownRemaining(original);
     if (wait > 0) {
       res.set('Retry-After', String(wait));
