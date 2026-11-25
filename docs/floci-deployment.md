@@ -27,7 +27,7 @@ Browser ──► S3 static website  vms-web          (React app)
 | Rawy, Visitor Registration (and sign-in) | Lambda `vms-registration`, API Gateway routes (visits create/edit/cancel, visitors, auth), IAM role `vms-registration-role`, CloudWatch Logs, **Secrets Manager**: every function reads the database string, session secret and email key from `vms/floci/app-config` when it starts; the functions' environment variables hold only the secret's name, and each IAM role may read only that one secret (`server/lambda/init.js`) |
 | Mostafa, Check-in/Check-out & Visitor Log | Lambda `vms-checkin`, API Gateway routes (log, on-site, check-in/out, reports), IAM role `vms-checkin-role` (may only add files under `reports/`), CloudWatch Logs, **S3 `vms-reports`** (private, AES-256, 365-day expiry; every CSV export is archived, `X-Report-Archive` header) |
 | Mohamed, Host Notifications | Lambda `vms-notifications`, API Gateway routes (`/api/notifications…`), IAM role `vms-notifications-role`, CloudWatch Logs |
-| Shared (deployment) | S3 `vms-web` (public website, the only public bucket) and `vms-deploy-artifacts` (code) |
+| Shared (deployment) | S3 `vms-web` (public website, the only public bucket) and `vms-deploy-artifacts` (code), Secrets Manager `vms/floci/app-config` |
 
 ## Run it
 
