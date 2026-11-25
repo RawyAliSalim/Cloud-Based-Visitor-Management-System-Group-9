@@ -282,6 +282,12 @@ async function sendArrivalNotification(visit) {
   }
 }
 
+// Entry point used by the check-in service when a visitor arrives. In this version it delivers
+// straight away; the notification service decides how arrivals are handled.
+async function notifyArrival(visit) {
+  return sendArrivalNotification(visit);
+}
+
 async function cancelRetries(filter, reason) {
   const result = await Notification.updateMany(
     { ...filter, status: { $in: ['Pending', 'Retrying'] } },
@@ -554,6 +560,7 @@ async function saveFcmToken(userId, token) {
 
 module.exports = {
   sendArrivalNotification,
+  notifyArrival,
   processDueRetries,
   listNotifications,
   findNotificationById,

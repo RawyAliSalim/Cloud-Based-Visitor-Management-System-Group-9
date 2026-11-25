@@ -35,12 +35,22 @@ services:
       mongo:
         condition: service_healthy
 
+  # floci runs each Lambda function in its own container, so it needs the Docker socket.
+  # Local development only: this gives floci control over Docker on this PC.
   floci:
     image: floci/floci:latest
     ports:
       - "127.0.0.1:${FLOCI_HOST_PORT:-4566}:4566"
     volumes:
       - floci-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      FLOCI_DOCKER_DOCKER_HOST: unix:///var/run/docker.sock
+      FLOCI_HOSTNAME: floci
+      FLOCI_BASE_URL: http://floci:4566
+      FLOCI_SERVICES_DOCKER_NETWORK: vms-net
+      # Few warm Lambda containers: the project runs on laptops with 8 GB RAM.
+      FLOCI_SERVICES_LAMBDA_WARM_POOL_MAX_TOTAL: "6"
 
   # Optional web UI for floci: docker compose --profile ui up -d floci-dash -> http://localhost:8080
   # Deliberately NOT given the Docker socket, so the UI cannot control containers on the host.
@@ -71,3 +81,8 @@ services:
 volumes:
   mongo-data:
   floci-data:
+
+# Fixed network name so floci can attach its Lambda containers to it (they reach floci and mongo by name).
+networks:
+  default:
+    name: vms-net

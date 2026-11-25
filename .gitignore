@@ -31,3 +31,7 @@ Thumbs.db
 
 # Local AWS script work files
 .aws-work/
+
+# floci deployment build output
+.floci-build/
+client/dist-floci/

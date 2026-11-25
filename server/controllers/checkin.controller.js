@@ -1,7 +1,8 @@
 const visitService = require('../services/visit.service');
 const reportService = require('../services/report.service');
+const archiveService = require('../services/archive.service');
 const userService = require('../services/user.service');
-const { sendArrivalNotification } = require('../services/notification.service');
+const { notifyArrival } = require('../services/notification.service');
 const logger = require('../utils/logger');
 const { sendError, isObjectId } = require('../middleware/validate');
 
@@ -133,7 +134,7 @@ async function checkIn(req, res, next) {
       minutesFromExpected: Math.round((now - new Date(updated.expectedArrival).getTime()) / 60000)
     });
 
-    const notifications = await sendArrivalNotification(updated);
+    const notifications = await notifyArrival(updated);
     const result = await visitService.findVisitDetails(updated._id, { includeContact: true });
 
     return res.status(200).json({
@@ -333,6 +334,16 @@ async function exportVisits(req, res, next) {
     const csv = await reportService.exportVisitsCsv(range);
     const name = `visitor-log-${range.from.toISOString().slice(0, 10)}-to-${range.to.toISOString().slice(0, 10)}.csv`;
     logger.info('report.exported', { requestId: req.id, by: req.session.user._id });
+
+    // Keep a copy in S3 (floci deployment). A storage problem must not block the download.
+    try {
+      const location = await archiveService.archiveReport({ fileName: name, csv, exportedBy: req.session.user._id });
+      if (location) {
+        res.set('X-Report-Archive', location);
+      }
+    } catch (error) {
+      logger.warn('report.archive_failed', { requestId: req.id, error: error.message });
+    }
     res.set('Content-Type', 'text/csv; charset=utf-8');
     res.set('Content-Disposition', `attachment; filename="${name}"`);
     res.set('Cache-Control', 'no-store');
