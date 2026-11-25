@@ -14,8 +14,12 @@ function checkInMessage(result) {
   const notifications = result?.notifications || [];
   const sent = notifications.filter((item) => item.status === 'Sent').map((item) => CHANNEL_NAMES[item.channel]);
   const retrying = notifications.filter((item) => item.status === 'Retrying');
+  const queued = notifications.filter((item) => item.status === 'Queued');
   if (sent.length > 0) {
     return `Visitor checked in. Host notified by ${sent.join(' and ')}.`;
+  }
+  if (queued.length > 0) {
+    return 'Visitor checked in. The host notification is being sent; its status appears below in a few seconds.';
   }
   if (retrying.length > 0) {
     return 'Visitor checked in. The host notification hit a temporary error and will be retried automatically.';

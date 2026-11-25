@@ -7,6 +7,7 @@ const { sendEmail, isEmailConfigured } = require('./email.service');
 const { sendPush } = require('./push.service');
 const { isFirebaseConfigured } = require('../config/firebase');
 const logger = require('../utils/logger');
+const arrivalQueue = require('./arrivalQueue.service');
 
 const CHANNELS = ['email', 'push'];
 const LIST_LIMIT = 200;
@@ -282,10 +283,40 @@ async function sendArrivalNotification(visit) {
   }
 }
 
-// Entry point used by the check-in service when a visitor arrives. In this version it delivers
-// straight away; the notification service decides how arrivals are handled.
+// Entry point used by the check-in service when a visitor arrives.
+// - With an arrivals queue (floci): the arrival goes to SQS and the notifications function,
+//   triggered by the queue, delivers it. Check-in answers at once with status "Queued".
+// - Without a queue (Vercel, Docker, tests), or if the queue cannot be reached: deliver now.
 async function notifyArrival(visit) {
+  if (arrivalQueue.isEnabled()) {
+    try {
+      await arrivalQueue.sendArrival(visit);
+      return CHANNELS.map((channel) => ({ channel, status: 'Queued' }));
+    } catch (error) {
+      logger.warn('notification.queue_unavailable', { visitId: String(visit._id), error: safeError(error) });
+    }
+  }
   return sendArrivalNotification(visit);
+}
+
+// Called by the notifications function for each SQS message. Safe to receive the same message
+// twice (SQS delivers at least once): the dedupe key allows one arrival notification per channel.
+async function handleArrivalMessage(message) {
+  const visit = await Visit.findById(message.visitId);
+  if (!visit) {
+    logger.warn('notification.arrival_skipped', { visitId: message.visitId, reason: 'VISIT_NOT_FOUND' });
+    return { skipped: 'VISIT_NOT_FOUND' };
+  }
+  if (visit.status !== 'Checked-in') {
+    logger.info('notification.arrival_skipped', { visitId: message.visitId, reason: 'VISIT_NOT_ON_SITE' });
+    return { skipped: 'VISIT_NOT_ON_SITE' };
+  }
+  const records = await sendArrivalNotification(visit);
+  if (records.length === 0) {
+    // Nothing could even be recorded (e.g. database problem): let SQS deliver the message again.
+    throw new Error('ARRIVAL_NOT_RECORDED');
+  }
+  return { notified: records.map((record) => `${record.channel}:${record.status}`) };
 }
 
 async function cancelRetries(filter, reason) {
@@ -561,6 +592,7 @@ async function saveFcmToken(userId, token) {
 module.exports = {
   sendArrivalNotification,
   notifyArrival,
+  handleArrivalMessage,
   processDueRetries,
   listNotifications,
   findNotificationById,
