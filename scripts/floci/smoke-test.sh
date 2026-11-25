@@ -22,6 +22,9 @@ check "request from another website is blocked" 403 "$(code -X POST -H 'Origin: 
 echo "== AWS resources"
 check "Lambda functions" 3 "$(aws lambda list-functions --query "length(Functions[?starts_with(FunctionName,'vms-')])" --output text)"
 check "CloudWatch log groups" 3 "$(aws logs describe-log-groups --log-group-name-prefix /aws/lambda/vms- --query 'length(logGroups)' --output text)"
-check "IAM roles" 3 "$(aws iam list-roles --query "length(Roles[?starts_with(RoleName,'vms-')])" --output text)"
+check "IAM roles (3 functions + scheduler)" 4 "$(aws iam list-roles --query "length(Roles[?starts_with(RoleName,'vms-')])" --output text)"
+check "SQS queues (arrivals + dead-letter)" 2 "$(aws sqs list-queues --queue-name-prefix vms-arrivals --query 'length(QueueUrls)' --output text)"
+check "SQS -> notifications trigger" 1 "$(aws lambda list-event-source-mappings --function-name vms-notifications --query 'length(EventSourceMappings)' --output text)"
+check "EventBridge retry schedule" ENABLED "$(aws scheduler get-schedule --name vms-notification-retries --query State --output text)"
 
 [[ $fail -eq 0 ]] && echo "All checks passed." || { echo "Some checks failed."; exit 1; }
