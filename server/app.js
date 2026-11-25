@@ -15,47 +15,71 @@ const visitsRoutes = require('./routes/visits.routes');
 const checkinRoutes = require('./routes/checkin.routes');
 const notificationRoutes = require('./routes/notifications.routes');
 
-const app = express();
+// Which routes each service owns. On floci every service runs as its own Lambda function
+// with only its own routes; Vercel, Docker and the tests run all services in one app.
+const SERVICE_ROUTES = {
+  registration: [
+    ['/api/auth', authRoutes],
+    ['/api/visitors', visitorsRoutes],
+    ['/api/visits', visitsRoutes]
+  ],
+  checkin: [['/api/visits', checkinRoutes]],
+  notifications: [['/api/notifications', notificationRoutes]]
+};
+const ALL_SERVICES = Object.keys(SERVICE_ROUTES);
 
-const allowedOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-app.set('trust proxy', 1);
-app.disable('x-powered-by');
-app.use(requestLogger);
-app.use(securityHeaders);
-// CORS only controls which other websites may read responses; it is not the security layer.
-// Security comes from the measures below and in docs/security.md.
-app.use(cors({ origin: allowedOrigins.length > 0 ? allowedOrigins : false, credentials: true }));
-app.use(sameOrigin);
-app.use(express.json({ limit: '100kb', strict: true }));
-app.use(sanitizeInput);
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    return next();
-  } catch (error) {
-    logger.error('db.connect_failed', { requestId: req.id, error: error.name });
-    return sendError(res, 503, 'DATABASE_UNAVAILABLE', 'Database is not available');
+function createApp({ services = ALL_SERVICES } = {}) {
+  const unknown = services.filter((service) => !SERVICE_ROUTES[service]);
+  if (unknown.length > 0) {
+    throw new Error(`Unknown service(s): ${unknown.join(', ')}`);
   }
-});
 
-app.use(createSession());
+  const app = express();
 
-app.use('/api/auth', authRoutes);
-app.use('/api/visitors', visitorsRoutes);
-app.use('/api/visits', visitsRoutes);
-app.use('/api/visits', checkinRoutes);
-app.use('/api/notifications', notificationRoutes);
+  const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-app.use(notFound);
-app.use(errorHandler);
+  app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+  app.use(requestLogger);
+  app.use(securityHeaders);
+  // CORS only controls which other websites may read responses; it is not the security layer.
+  // Security comes from the measures below and in docs/security.md.
+  app.use(cors({ origin: allowedOrigins.length > 0 ? allowedOrigins : false, credentials: true }));
+  app.use(sameOrigin);
+  app.use(express.json({ limit: '100kb', strict: true }));
+  app.use(sanitizeInput);
+
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', services });
+  });
+
+  app.use(async (req, res, next) => {
+    try {
+      await connectDB();
+      return next();
+    } catch (error) {
+      logger.error('db.connect_failed', { requestId: req.id, error: error.name });
+      return sendError(res, 503, 'DATABASE_UNAVAILABLE', 'Database is not available');
+    }
+  });
+
+  app.use(createSession());
+
+  services.forEach((service) => {
+    SERVICE_ROUTES[service].forEach(([path, router]) => app.use(path, router));
+  });
+
+  app.use(notFound);
+  app.use(errorHandler);
+
+  return app;
+}
+
+const app = createApp();
 
 module.exports = app;
+module.exports.createApp = createApp;
+module.exports.ALL_SERVICES = ALL_SERVICES;

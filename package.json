@@ -23,6 +23,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.1",
     "firebase-admin": "^12.7.0",
-    "mongoose": "^8.8.0"
+    "mongoose": "^8.8.0",
+    "serverless-http": "^4.0.0"
   }
 }
