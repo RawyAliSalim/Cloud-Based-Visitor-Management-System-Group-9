@@ -66,7 +66,9 @@ function createApp({ services = ALL_SERVICES } = {}) {
     }
   });
 
-  app.use(createSession());
+  const sessionMiddleware = createSession();
+  app.locals.sessionStore = sessionMiddleware.store;
+  app.use(sessionMiddleware);
 
   services.forEach((service) => {
     SERVICE_ROUTES[service].forEach(([path, router]) => app.use(path, router));

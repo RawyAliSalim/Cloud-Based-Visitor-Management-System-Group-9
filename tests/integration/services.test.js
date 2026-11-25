@@ -6,6 +6,7 @@ const { startTestServer } = require('../helpers/testServer');
 
 let ctx;
 const servers = [];
+const apps = [];
 
 before(async () => {
   ctx = await startTestServer('services');
@@ -13,12 +14,23 @@ before(async () => {
 
 after(async () => {
   await Promise.all(servers.map((server) => new Promise((resolve) => server.close(resolve))));
+  // Each extra app has its own session-store connection. Wait until each store has finished
+  // starting (TTL index created, connect-mongo's collectionP), then close it; closing earlier
+  // interrupts that start-up work and crashes the test process on Windows.
+  await Promise.all(
+    apps.map(async (app) => {
+      await app.locals.sessionStore.collectionP.catch(() => null);
+      await app.locals.sessionStore.close();
+    })
+  );
   await ctx.close();
 });
 
 async function serve(services) {
   const { createApp } = require('../../server/app');
-  const server = http.createServer(createApp({ services }));
+  const app = createApp({ services });
+  apps.push(app);
+  const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   servers.push(server);
   return `http://127.0.0.1:${server.address().port}`;

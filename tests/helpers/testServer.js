@@ -108,6 +108,13 @@ async function startTestServer(name, extraEnv = {}) {
 
   async function close() {
     await new Promise((resolve) => server.close(resolve));
+    // Close the session store's own MongoDB connection once it has finished starting;
+    // leaving it open can crash the test process on Windows when it exits.
+    const store = app.locals.sessionStore;
+    if (store) {
+      await store.collectionP.catch(() => null);
+      await store.close().catch(() => null);
+    }
     await mongoose.connection.dropDatabase().catch(() => null);
     await mongoose.disconnect();
   }
