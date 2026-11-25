@@ -29,6 +29,7 @@ Each notification stores `attempts`, `maxAttempts`, `lastAttemptAt`, `nextRetryA
 | No duplicate arrival notifications | The first notification per visit and channel has a unique `dedupeKey`. Calling the arrival notification twice for one visit sends nothing new. |
 | Acknowledgement covers the visit | Acknowledging any notification of a visit marks all of that visit's notifications as acknowledged (`acknowledgedAt`, `acknowledgedBy`) and stops pending retries. A second or simultaneous acknowledgement gets 409. Only possible while the visitor is checked in (409 `VISIT_NOT_ON_SITE`). |
 | Manual resend | Only `Failed` or `Retrying`, not yet resent, not acknowledged, visitor still checked in (409 `NOTIFICATION_NOT_FAILED` / `NOTIFICATION_ALREADY_RESENT` / `NOTIFICATION_ALREADY_ACKNOWLEDGED` / `VISIT_NOT_ON_SITE`). The original is atomically marked `supersededBy`, so simultaneous clicks create one resend. A resend within `NOTIFICATION_RESEND_COOLDOWN_SECONDS` (30) of the last attempt gets 429 with `Retry-After`. |
+| Channel must be set up | A resend is refused (409 `CHANNEL_NOT_CONFIGURED`) while that channel is not configured on the server right now (email: `EMAIL_API_KEY` + `EMAIL_FROM`; push: Firebase keys). The check uses the current configuration, not the old error, so notifications that failed before a channel was set up can be resent afterwards. The list returns `channelConfigured` per notification; the web app hides **Resend** and says why. |
 
 ## Endpoints added or changed
 

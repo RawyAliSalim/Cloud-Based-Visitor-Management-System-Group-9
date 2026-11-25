@@ -339,13 +339,49 @@ describe('manual resend', () => {
   test('resending too quickly is rate limited', async () => {
     process.env.NOTIFICATION_RESEND_COOLDOWN_SECONDS = '60';
     try {
+      fakeEmail.queue = [400];
       const visit = await checkedInVisit();
-      const { push } = await notificationsFor(visit._id);
-      const res = await frontDesk.post(`/api/notifications/${push._id}/resend`);
+      const { email } = await notificationsFor(visit._id);
+      const res = await frontDesk.post(`/api/notifications/${email._id}/resend`);
       assert.equal(res.status, 429);
       assert.ok(Number(res.headers.get('retry-after')) > 0);
     } finally {
       process.env.NOTIFICATION_RESEND_COOLDOWN_SECONDS = '0';
+    }
+  });
+
+  test('a channel that is not set up on the server cannot be resent', async () => {
+    const visit = await checkedInVisit();
+    const { push } = await notificationsFor(visit._id);
+    assert.equal(push.error, 'PUSH_NOT_CONFIGURED');
+    const before = await Notification.countDocuments({ visitId: visit._id });
+
+    const res = await frontDesk.post(`/api/notifications/${push._id}/resend`);
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error.code, 'CHANNEL_NOT_CONFIGURED');
+    assert.equal(await Notification.countDocuments({ visitId: visit._id }), before, 'no new attempt was created');
+  });
+
+  test('the list tells the web app which channels can be resent right now', async () => {
+    const visit = await checkedInVisit();
+    const list = await frontDesk.get(`/api/notifications?visitId=${visit._id}`);
+    const byChannel = Object.fromEntries(list.body.map((item) => [item.channel, item.channelConfigured]));
+    assert.deepEqual(byChannel, { email: true, push: false });
+  });
+
+  test('a channel configured after the failure can be resent', async () => {
+    const saved = { key: process.env.EMAIL_API_KEY };
+    process.env.EMAIL_API_KEY = '';
+    try {
+      const visit = await checkedInVisit();
+      const { email } = await notificationsFor(visit._id);
+      assert.equal(email.error, 'EMAIL_NOT_CONFIGURED');
+      process.env.EMAIL_API_KEY = saved.key;
+      const res = await frontDesk.post(`/api/notifications/${email._id}/resend`);
+      assert.equal(res.status, 201);
+      assert.equal(res.body.status, 'Sent');
+    } finally {
+      process.env.EMAIL_API_KEY = saved.key;
     }
   });
 });

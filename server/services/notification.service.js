@@ -3,8 +3,9 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Visit = require('../models/Visit');
 const Visitor = require('../models/Visitor');
-const { sendEmail } = require('./email.service');
+const { sendEmail, isEmailConfigured } = require('./email.service');
 const { sendPush } = require('./push.service');
+const { isFirebaseConfigured } = require('../config/firebase');
 const logger = require('../utils/logger');
 
 const CHANNELS = ['email', 'push'];
@@ -342,8 +343,14 @@ async function processDueRetries({ limit = 20 } = {}) {
   return summary;
 }
 
+// Whether this server can currently send on a channel. Checked at request time, so a channel
+// configured after a notification failed (e.g. email added later) can be resent.
+function isChannelConfigured(channel) {
+  return channel === 'email' ? isEmailConfigured() : isFirebaseConfigured();
+}
+
 async function listNotifications(filter) {
-  return Notification.find(filter)
+  const notifications = await Notification.find(filter)
     .sort({ createdAt: -1 })
     .limit(LIST_LIMIT)
     .select('-dedupeKey -lockedUntil')
@@ -355,6 +362,10 @@ async function listNotifications(filter) {
       populate: { path: 'visitorId', model: Visitor, select: 'fullName name' }
     })
     .lean();
+  return notifications.map((notification) => ({
+    ...notification,
+    channelConfigured: isChannelConfigured(notification.channel)
+  }));
 }
 
 async function findNotificationById(id) {
@@ -552,6 +563,7 @@ module.exports = {
   resendCooldownRemaining,
   notificationSummary,
   saveFcmToken,
+  isChannelConfigured,
   isRetryable,
   retryDelayMs
 };
